@@ -36,8 +36,9 @@ export default function RegisterForTournamentPage() {
           description: "Tournament not found.",
           variant: "destructive",
         });
+        // router.push("/"); // Consider if this is desired behavior
       }
-      setAllPlayers(getPlayers());
+      setAllPlayers(getPlayers()); // Ensure allPlayers is fetched
       setIsLoading(false);
     }
   }, [tournamentId, toast]);
@@ -56,7 +57,7 @@ export default function RegisterForTournamentPage() {
         toast({ title: "Error", description: "One or more selected players not found.", variant: "destructive" });
         return;
     }
-
+    
     // Check for duplicate players within this tournament
     const existingPlayerIdsInTournament = new Set<string>();
     registrations.forEach(reg => {
@@ -73,7 +74,7 @@ export default function RegisterForTournamentPage() {
       });
       return;
     }
-    
+
     try {
       addTournamentRegistration(tournament.id, entryName, selectedPlayers);
       fetchTournamentData(); 

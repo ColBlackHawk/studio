@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShieldCheck, Users, Settings, Trophy, Users2 as TeamsIcon } from "lucide-react"; // Added Users2 as TeamsIcon
+import { Home, ShieldCheck, Users, Settings, Trophy } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy },
   { href: "/admin/players", label: "Manage Players", icon: Users },
-  { href: "/admin/teams", label: "Manage Teams/Pairs", icon: TeamsIcon }, // New navigation item
+  // { href: "/admin/teams", label: "Manage Teams/Pairs", icon: TeamsIcon }, // REMOVED
   // Example of a settings link if needed in future
   // { href: "/settings", label: "Settings", icon: Settings },
 ];

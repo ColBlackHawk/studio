@@ -1,47 +1,54 @@
-
 "use client";
 
-import TeamForm from "@/components/teams/TeamForm";
-import type { TeamCreation } from "@/lib/types";
-import { createTeam } from "@/lib/dataService";
-import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
+import { usePathname } from "next/navigation";
+import { Home, ShieldCheck, Users, Settings, Trophy } from "lucide-react"; 
+import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
-export default function NewTeamPage() {
-  const router = useRouter();
-  const { toast } = useToast();
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
 
-  const handleSubmit = (data: TeamCreation) => {
-    try {
-      createTeam(data);
-      toast({
-        title: "Team/Pair Created",
-        description: `"${data.name}" has been successfully created.`,
-      });
-      router.push("/admin/teams");
-    } catch (error: any) {
-      toast({
-        title: "Error Creating Team/Pair",
-        description: error.message || "Could not create the team/pair.",
-        variant: "destructive",
-      });
-    }
-  };
+const navItems: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy },
+  { href: "/admin/players", label: "Manage Players", icon: Users },
+  // { href: "/admin/teams", label: "Manage Teams/Pairs", icon: TeamsIcon }, // REMOVED
+  // Example of a settings link if needed in future
+  // { href: "/settings", label: "Settings", icon: Settings },
+];
+
+interface SidebarNavProps {
+  isMobile?: boolean; // To adjust styling or behavior if needed for mobile
+}
+
+export default function SidebarNav({ isMobile = false }: SidebarNavProps) {
+  const pathname = usePathname();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/admin/teams">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Add New Team/Pair</h1>
-      </div>
-      <TeamForm onSubmit={handleSubmit} />
-    </div>
+    <nav className={cn(
+      "flex flex-col gap-2 text-sm font-medium",
+      isMobile ? "p-4" : "px-2 py-4"
+    )}>
+      {navItems.map((item) => (
+        <Link
+          key={item.label}
+          href={item.href}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-muted",
+            pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)) // Highlight parent nav item
+              ? "bg-muted text-primary"
+              : "text-muted-foreground",
+            isMobile ? "text-base" : ""
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

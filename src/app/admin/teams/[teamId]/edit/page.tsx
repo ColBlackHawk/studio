@@ -1,72 +1,54 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import TeamForm from "@/components/teams/TeamForm";
-import type { Team } from "@/lib/types";
-import { getTeamById, updateTeam } from "@/lib/dataService";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
+import { usePathname } from "next/navigation";
+import { Home, ShieldCheck, Users, Settings, Trophy } from "lucide-react"; 
+import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
-export default function EditTeamPage() {
-  const router = useRouter();
-  const params = useParams();
-  const teamId = params.teamId as string;
-  const [team, setTeam] = useState<Team | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
 
-  useEffect(() => {
-    if (teamId) {
-      const fetchedTeam = getTeamById(teamId);
-      if (fetchedTeam) {
-        setTeam(fetchedTeam);
-      } else {
-        router.push("/admin/teams");
-      }
-      setIsLoading(false);
-    }
-  }, [teamId, router]);
+const navItems: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy },
+  { href: "/admin/players", label: "Manage Players", icon: Users },
+  // { href: "/admin/teams", label: "Manage Teams/Pairs", icon: TeamsIcon }, // REMOVED
+  // Example of a settings link if needed in future
+  // { href: "/settings", label: "Settings", icon: Settings },
+];
 
-  const handleSubmit = (data: Team) => {
-     try {
-      updateTeam(teamId, data);
-       toast({
-        title: "Team/Pair Updated",
-        description: `"${data.name}" has been successfully updated.`,
-      });
-      router.push("/admin/teams");
-    } catch (error: any) {
-      toast({
-        title: "Error Updating Team/Pair",
-        description: error.message || "Could not update the team/pair.",
-        variant: "destructive",
-      });
-    }
-  };
+interface SidebarNavProps {
+  isMobile?: boolean; // To adjust styling or behavior if needed for mobile
+}
 
-  if (isLoading) {
-    return <p>Loading team data...</p>;
-  }
-
-  if (!team) {
-    return <p>Team not found.</p>;
-  }
+export default function SidebarNav({ isMobile = false }: SidebarNavProps) {
+  const pathname = usePathname();
 
   return (
-    <div className="space-y-6">
-       <div className="flex items-center gap-4">
-         <Button variant="outline" size="icon" asChild>
-          <Link href="/admin/teams">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Edit Team/Pair: {team.name}</h1>
-      </div>
-      <TeamForm team={team} onSubmit={handleSubmit} isEditing />
-    </div>
+    <nav className={cn(
+      "flex flex-col gap-2 text-sm font-medium",
+      isMobile ? "p-4" : "px-2 py-4"
+    )}>
+      {navItems.map((item) => (
+        <Link
+          key={item.label}
+          href={item.href}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-muted",
+            pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)) // Highlight parent nav item
+              ? "bg-muted text-primary"
+              : "text-muted-foreground",
+            isMobile ? "text-base" : ""
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

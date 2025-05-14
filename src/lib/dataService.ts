@@ -1,5 +1,5 @@
 
-import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, Team, TeamCreation } from "./types";
+import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation } from "./types";
 import { getItem, setItem, removeItem } from "./localStorage";
 import { LOCALSTORAGE_KEYS } from "./constants";
 
@@ -104,69 +104,12 @@ export const deletePlayer = (id: string): boolean => {
   return false;
 };
 
-// --- Team ---
-export const getTeams = (): Team[] => {
-  return getItem<Team[]>(LOCALSTORAGE_KEYS.TEAMS) || [];
-};
-
-export const getTeamById = (id: string): Team | undefined => {
-  const teams = getTeams();
-  return teams.find(t => t.id === id);
-};
-
-export const createTeam = (teamData: TeamCreation): Team => {
-  const teams = getTeams();
-  if (teamData.playerIds.length === 0) {
-    throw new Error("A team must have at least one player.");
-  }
-  if (teamData.type === "Scotch Doubles" && teamData.playerIds.length !== 2) {
-    throw new Error("Scotch Doubles entries must have exactly 2 players.");
-  }
-  // Add more validation for 'Team' type player count if needed, e.g. min/max
-  
-  const newTeam: Team = { ...teamData, id: crypto.randomUUID() };
-  teams.push(newTeam);
-  setItem(LOCALSTORAGE_KEYS.TEAMS, teams);
-  return newTeam;
-};
-
-export const updateTeam = (id: string, updates: Partial<Team>): Team | undefined => {
-  let teams = getTeams();
-  const index = teams.findIndex(t => t.id === id);
-  if (index !== -1) {
-    const updatedTeam = { ...teams[index], ...updates };
-    if (updatedTeam.playerIds.length === 0) {
-      throw new Error("A team must have at least one player.");
-    }
-    if (updatedTeam.type === "Scotch Doubles" && updatedTeam.playerIds.length !== 2) {
-      throw new Error("Scotch Doubles entries must have exactly 2 players.");
-    }
-    teams[index] = updatedTeam;
-    setItem(LOCALSTORAGE_KEYS.TEAMS, teams);
-    return teams[index];
-  }
-  return undefined;
-};
-
-export const deleteTeam = (id: string): boolean => {
-  let teams = getTeams();
-  const initialLength = teams.length;
-  teams = teams.filter(t => t.id !== id);
-  if (teams.length < initialLength) {
-    setItem(LOCALSTORAGE_KEYS.TEAMS, teams);
-    // TODO: Consider implications for existing tournament registrations if a team is deleted.
-    return true;
-  }
-  return false;
-};
-
-
 // --- Tournament Registrations ---
 export const getTournamentRegistrations = (tournamentId: string): RegisteredEntry[] => {
   return getItem<RegisteredEntry[]>(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`) || [];
 };
 
-export const addTournamentRegistration = (tournamentId: string, entryName: string, players: Player[], teamId?: string): RegisteredEntry => {
+export const addTournamentRegistration = (tournamentId: string, entryName: string, players: Player[]): RegisteredEntry => {
   const registrations = getTournamentRegistrations(tournamentId);
   const tournament = getTournamentById(tournamentId);
 
@@ -183,7 +126,6 @@ export const addTournamentRegistration = (tournamentId: string, entryName: strin
     tournamentId,
     entryName,
     players,
-    teamId, // Store the ID of the pre-defined team if applicable
   };
   registrations.push(newRegistration);
   setItem(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`, registrations);

@@ -46,16 +46,17 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
       maxPlayersToSelect = 1;
       minPlayersToSelect = 1;
       playerSelectionMessage = `Select 1 Player (${selectedPlayers.length}/${maxPlayersToSelect})`;
+      showEntryNameField = false;
       break;
     case "Scotch Doubles":
       maxPlayersToSelect = 2;
       minPlayersToSelect = 2;
       playerSelectionMessage = `Select 2 Players for the pair (${selectedPlayers.length}/${maxPlayersToSelect})`;
-      entryNameFieldLabel = "Pair Name (e.g., PlayerA & PlayerB)"; // or allow custom
-      showEntryNameField = false; // Auto-generate from player nicknames
+      entryNameFieldLabel = "Pair Name (auto-generated)"; 
+      showEntryNameField = false; 
       break;
     case "Team":
-      maxPlayersToSelect = 2; // For now, can be made dynamic based on tournament settings
+      maxPlayersToSelect = 2; // Default for now, can be made dynamic based on tournament settings
       minPlayersToSelect = 1;
       playerSelectionMessage = `Select 1 or 2 Players for the Team (${selectedPlayers.length}/${maxPlayersToSelect})`;
       entryNameFieldLabel = "Team Name";
@@ -83,23 +84,21 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
   });
 
    useEffect(() => {
-    // Reset selected players and form if tournament participant type changes contextually (e.g. parent component re-renders with new tournament prop)
     setSelectedPlayers([]);
     form.reset({ entryName: "" });
-    // Trigger re-validation if needed, or rely on user interaction
     form.trigger(["players"]);
   }, [tournament.participantType, form]);
 
   const handleSelectPlayer = (player: Player) => {
     if (selectedPlayers.length < maxPlayersToSelect) {
       setSelectedPlayers(prev => [...prev, player]);
-      form.trigger(["players"]); // Trigger validation for player selection
+      form.trigger(["players"]); 
     }
   };
 
   const handleDeselectPlayer = (playerId: string) => {
     setSelectedPlayers(prev => prev.filter(p => p.id !== playerId));
-    form.trigger(["players"]); // Trigger validation for player selection
+    form.trigger(["players"]); 
   };
 
   const handleSubmit = (data: RegistrationFormValues) => {
