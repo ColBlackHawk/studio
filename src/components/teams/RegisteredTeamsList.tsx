@@ -44,14 +44,15 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     switch(participantType) {
       case "Player": return <User className="inline-block mr-1 h-4 w-4" />;
       case "Scotch Doubles": return <Users2 className="inline-block mr-1 h-4 w-4" />;
-      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />;
+      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />; // Defaulting to Shield for Team
       default: return <Shield className="inline-block mr-1 h-4 w-4" />;
     }
   };
   
-  const entryNameLabel = participantType === "Player" ? "Player Nickname" : 
-                         participantType === "Scotch Doubles" ? "Pair Name" : 
-                         "Team Name";
+  const entryNameLabel = 
+    participantType === "Player" ? "Player Nickname" : 
+    participantType === "Scotch Doubles" ? "Pair Name" : 
+    "Team Name";
 
 
   return (
@@ -107,3 +108,4 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     </Card>
   );
 }
+
