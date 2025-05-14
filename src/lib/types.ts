@@ -33,6 +33,8 @@ export interface Match {
   winnerId?: string; // ID of RegisteredEntry who won this match
   score?: string; // e.g., "2-1", "W-F"
   isBye?: boolean; // If true, team1Id (if present) auto-advances. team2Id should be undefined.
+  team1FeederMatchId?: string; // ID of the match in the PREVIOUS round that feeds team1 slot (for SE)
+  team2FeederMatchId?: string; // ID of the match in the PREVIOUS round that feeds team2 slot (for SE)
 }
 
 export interface Tournament {
