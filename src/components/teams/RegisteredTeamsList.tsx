@@ -5,7 +5,7 @@ import type { RegisteredEntry, ParticipantType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Users, Shield, User, Users2 } from "lucide-react";
+import { Trash2, Users, Shield, User, Users2, FileSignature } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,15 +49,19 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     }
   };
   
-  const entryNameLabel = 
-    participantType === "Player" ? "Player Nickname" : 
-    participantType === "Scotch Doubles" ? "Pair Name" : 
-    "Team Name";
+  let firstColumnHeader = "Entry Name";
+  let secondColumnHeader = "Player(s)";
+  let secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
 
-  const membersLabel = 
-    participantType === "Player" ? "Player" : "Player(s)";
-  const membersIcon = 
-    participantType === "Player" ? <User className="inline-block mr-1 h-4 w-4" /> : <Users className="inline-block mr-1 h-4 w-4" />;
+  if (participantType === "Player") {
+    firstColumnHeader = "Player Nickname";
+    secondColumnHeader = "Full Name";
+    secondColumnIcon = <FileSignature className="inline-block mr-1 h-4 w-4" />;
+  } else if (participantType === "Scotch Doubles") {
+    firstColumnHeader = "Pair Name";
+  } else if (participantType === "Team") {
+    firstColumnHeader = "Team Name";
+  }
 
 
   return (
@@ -72,8 +76,8 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{getEntryIcon()}{entryNameLabel}</TableHead>
-              <TableHead>{membersIcon}{membersLabel}</TableHead>
+              <TableHead>{getEntryIcon()}{firstColumnHeader}</TableHead>
+              <TableHead>{secondColumnIcon}{secondColumnHeader}</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -83,7 +87,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
                 <TableCell className="font-medium">{entry.entryName}</TableCell>
                 <TableCell>
                   {participantType === "Player" && entry.players.length > 0 
-                    ? entry.players[0].nickname 
+                    ? `${entry.players[0].firstName || ''} ${entry.players[0].lastName || ''}`.trim() || "N/A"
                     : entry.players.map(p => p.nickname).join(", ")}
                 </TableCell>
                 <TableCell className="text-right">
