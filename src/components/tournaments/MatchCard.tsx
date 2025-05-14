@@ -43,17 +43,26 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
     }
   };
 
-  const team1Name = team1?.entryName ?? (match.team1Id ? "Waiting..." : "Bye");
-  const team2Name = team2?.entryName ?? (match.team2Id ? "Waiting..." : "Bye");
+  const getParticipantName = (entry?: RegisteredEntry, matchParticipantId?: string): string => {
+    if (!matchParticipantId) return "Bye"; 
+    if (!entry) return "Waiting..."; 
+
+    // Prioritize player's direct nickname if it's a single player entry
+    if (entry.players && entry.players.length === 1 && entry.players[0]?.nickname) {
+      return entry.players[0].nickname;
+    }
+    // Fallback to entryName for teams/pairs or if nickname somehow missing from player object
+    return entry.entryName || "Unknown Entry"; 
+  };
+
+  const team1Name = getParticipantName(team1, match.team1Id);
+  const team2Name = getParticipantName(team2, match.team2Id);
 
   const isClickable = (teamId?: string) => {
     if (!teamId) return false; 
     if (match.isBye && (teamId === match.team1Id || teamId === match.team2Id) && match.winnerId === teamId) {
-      // If it's a bye and the winner is already set to the bye recipient, don't allow change.
-      // Exception: if somehow a bye match winner is cleared, it should become clickable again.
       if (match.winnerId) return false;
     }
-    // For Grand Final Reset, if it's marked as a bye (not active), it's not clickable
     if (match.bracketType === 'grandFinalReset' && match.isBye) return false;
     return true;
   }
@@ -78,10 +87,11 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
     }
   }
   
-  const matchIdentifier = `${match.bracketType === 'winners' ? 'W' : match.bracketType === 'losers' ? 'L' : match.bracketType === 'grandFinal' ? 'GF' : 'GFR'}${match.round}-${match.matchNumberInRound}`;
+  const matchIdentifier = `${match.bracketType === 'winners' ? 'W' : match.bracketType === 'losers' ? 'L' : match.bracketType === 'grandFinal' ? 'GF' : match.bracketType === 'grandFinalReset' ? 'GFR' : 'M'}${match.round}-${match.matchNumberInRound}`;
 
 
-  if (match.isBye && match.bracketType !== 'grandFinalReset') { // grandFinalReset can be a bye initially but become active
+  if (match.isBye && match.bracketType !== 'grandFinalReset') { 
+    const advancingParticipantName = team1Name !== "Bye" ? team1Name : team2Name;
     return (
       <Card className="shadow-md bg-muted/30">
         <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
@@ -91,14 +101,13 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
           {getBracketTypeIndicator()}
         </CardHeader>
         <CardContent className="text-center py-2">
-          <p className="font-semibold text-primary">{match.team1Id ? (team1?.entryName || "Advancing...") : (team2?.entryName || "Advancing...")}</p>
+          <p className="font-semibold text-primary">{advancingParticipantName}</p>
           <p className="text-sm text-muted-foreground">BYE (Auto-Win)</p>
         </CardContent>
       </Card>
     );
   }
   
-  // Special display for inactive Grand Final Reset
   if (match.bracketType === 'grandFinalReset' && match.isBye) {
      return (
       <Card className="shadow-md bg-muted/20 opacity-60">
@@ -174,3 +183,4 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
     </Card>
   );
 }
+
