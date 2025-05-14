@@ -44,7 +44,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     switch(participantType) {
       case "Player": return <User className="inline-block mr-1 h-4 w-4" />;
       case "Scotch Doubles": return <Users2 className="inline-block mr-1 h-4 w-4" />;
-      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />; // Defaulting to Shield for Team
+      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />; 
       default: return <Shield className="inline-block mr-1 h-4 w-4" />;
     }
   };
@@ -53,6 +53,11 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     participantType === "Player" ? "Player Nickname" : 
     participantType === "Scotch Doubles" ? "Pair Name" : 
     "Team Name";
+
+  const membersLabel = 
+    participantType === "Player" ? "Player" : "Player(s)";
+  const membersIcon = 
+    participantType === "Player" ? <User className="inline-block mr-1 h-4 w-4" /> : <Users className="inline-block mr-1 h-4 w-4" />;
 
 
   return (
@@ -68,7 +73,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
           <TableHeader>
             <TableRow>
               <TableHead>{getEntryIcon()}{entryNameLabel}</TableHead>
-              <TableHead><Users className="inline-block mr-1 h-4 w-4" />Player(s)</TableHead>
+              <TableHead>{membersIcon}{membersLabel}</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -76,7 +81,11 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
             {registrations.map((entry) => (
               <TableRow key={entry.id}>
                 <TableCell className="font-medium">{entry.entryName}</TableCell>
-                <TableCell>{entry.players.map(p => p.nickname).join(", ")}</TableCell>
+                <TableCell>
+                  {participantType === "Player" && entry.players.length > 0 
+                    ? entry.players[0].nickname 
+                    : entry.players.map(p => p.nickname).join(", ")}
+                </TableCell>
                 <TableCell className="text-right">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
