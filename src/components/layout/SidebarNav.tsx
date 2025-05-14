@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShieldCheck, Users, Settings, Trophy } from "lucide-react";
+import { Home, ShieldCheck, Users, Settings, Trophy, Users2 as TeamsIcon } from "lucide-react"; // Added Users2 as TeamsIcon
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -16,6 +17,7 @@ const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy },
   { href: "/admin/players", label: "Manage Players", icon: Users },
+  { href: "/admin/teams", label: "Manage Teams/Pairs", icon: TeamsIcon }, // New navigation item
   // Example of a settings link if needed in future
   // { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -38,7 +40,9 @@ export default function SidebarNav({ isMobile = false }: SidebarNavProps) {
           href={item.href}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-muted",
-            pathname === item.href ? "bg-muted text-primary" : "text-muted-foreground",
+            pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)) // Highlight parent nav item
+              ? "bg-muted text-primary"
+              : "text-muted-foreground",
             isMobile ? "text-base" : ""
           )}
         >
