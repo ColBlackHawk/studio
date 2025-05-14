@@ -81,39 +81,46 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
             </TableRow>
           </TableHeader>
           <TableBody>
-            {registrations.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className="font-medium">{entry.entryName}</TableCell>
-                <TableCell>
-                  {participantType === "Player" && entry.players.length > 0 
-                    ? `${entry.players[0].firstName || ''} ${entry.players[0].lastName || ''}`.trim() || "N/A"
-                    : entry.players.map(p => p.nickname).join(", ")}
-                </TableCell>
-                <TableCell className="text-right">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirm Removal</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to remove "{entry.entryName}" from this tournament?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onRemoveRegistration(entry.id)}>
-                          Remove
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
+            {registrations.map((entry) => {
+              let firstColumnDisplayValue = entry.entryName;
+              if (participantType === "Player" && entry.players && entry.players.length > 0) {
+                firstColumnDisplayValue = entry.players[0].nickname || entry.entryName; // Prioritize direct nickname
+              }
+
+              return (
+                <TableRow key={entry.id}>
+                  <TableCell className="font-medium">{firstColumnDisplayValue}</TableCell>
+                  <TableCell>
+                    {participantType === "Player" && entry.players.length > 0
+                      ? `${entry.players[0].firstName || ''} ${entry.players[0].lastName || ''}`.trim() || "N/A"
+                      : entry.players.map(p => p.nickname).join(", ")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirm Removal</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to remove "{entry.entryName}" from this tournament?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onRemoveRegistration(entry.id)}>
+                            Remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
