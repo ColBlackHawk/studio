@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation"; 
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Tournament, RegisteredEntry, Player, TeamRegistrationPayload } from "@/lib/types";
 import { getTournamentById, getTournamentRegistrations, addTournamentRegistration, removeTournamentRegistration as removeRegistrationService, getPlayers } from "@/lib/dataService";
@@ -37,10 +37,10 @@ export default function RegisterForTournamentPage() {
           variant: "destructive",
         });
       }
-      setAllPlayers(getPlayers()); 
+      setAllPlayers(getPlayers());
       setIsLoading(false);
     }
-  }, [tournamentId, toast]); // router removed from dependencies as it's not used in this callback
+  }, [tournamentId, toast]);
 
   useEffect(() => {
     fetchTournamentData();
@@ -55,6 +55,23 @@ export default function RegisterForTournamentPage() {
     if (selectedPlayers.length !== playerIds.length) {
         toast({ title: "Error", description: "One or more selected players not found.", variant: "destructive" });
         return;
+    }
+
+    // Check for duplicate players within this tournament
+    const existingPlayerIdsInTournament = new Set<string>();
+    registrations.forEach(reg => {
+      reg.players.forEach(p => existingPlayerIdsInTournament.add(p.id));
+    });
+
+    const duplicates = selectedPlayers.filter(p => existingPlayerIdsInTournament.has(p.id));
+    if (duplicates.length > 0) {
+      const duplicateNicknames = duplicates.map(d => d.nickname).join(", ");
+      toast({
+        title: "Duplicate Player(s)",
+        description: `Player(s) "${duplicateNicknames}" are already registered in this tournament.`,
+        variant: "destructive",
+      });
+      return;
     }
     
     try {
