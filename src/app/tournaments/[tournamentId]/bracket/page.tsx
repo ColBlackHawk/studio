@@ -23,7 +23,7 @@ export default function TournamentBracketPage() {
   const [registrations, setRegistrations] = useState<RegisteredEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTournamentData = useCallback(() => {
+  const fetchTournamentData = useCallback(async () => {
     if (tournamentId) {
       setIsLoading(true);
       const fetchedTournament = getTournamentById(tournamentId);
@@ -72,7 +72,7 @@ export default function TournamentBracketPage() {
       });
     } else {
       toast({ title: "Error", description: "Failed to update bracket.", variant: "destructive" });
-      fetchTournamentData(); 
+      await fetchTournamentData(); 
     }
   };
   
@@ -97,9 +97,10 @@ export default function TournamentBracketPage() {
     );
   }
 
-  const winnersBracketMatches = tournament.matches?.filter(m => m.bracketType === 'winners') || [];
-  const losersBracketMatches = tournament.matches?.filter(m => m.bracketType === 'losers') || [];
-  const grandFinalMatches = tournament.matches?.filter(m => m.bracketType === 'grandFinal' || m.bracketType === 'grandFinalReset') || [];
+  const allMatches = tournament.matches || [];
+  const winnersBracketMatches = allMatches.filter(m => m.bracketType === 'winners');
+  const losersBracketMatches = allMatches.filter(m => m.bracketType === 'losers');
+  const grandFinalMatches = allMatches.filter(m => m.bracketType === 'grandFinal' || m.bracketType === 'grandFinalReset');
 
 
   if (!tournament.matches || tournament.matches.length === 0) {
@@ -160,7 +161,7 @@ export default function TournamentBracketPage() {
         </Card>
       )}
 
-      {winnersBracketMatches.length > 0 && (
+      {tournament.tournamentType === 'double_elimination' && winnersBracketMatches.length > 0 && (
         <BracketDisplay
           matches={winnersBracketMatches}
           registrations={registrations}
@@ -190,9 +191,9 @@ export default function TournamentBracketPage() {
         />
       )}
 
-      {tournament.tournamentType === 'single' && tournament.matches && tournament.matches.length > 0 && (
+      {tournament.tournamentType === 'single' && allMatches.length > 0 && (
          <BracketDisplay
-            matches={tournament.matches}
+            matches={allMatches}
             registrations={registrations}
             onWinnerSelected={handleWinnerSelected}
             bracketTypeTitle="Bracket"
