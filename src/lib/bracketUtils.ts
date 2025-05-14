@@ -18,11 +18,11 @@ const getNextPowerOfTwo = (n: number): number => {
   return power;
 };
 
-export const generateSingleEliminationBracket = (
+export const generateSingleEliminationBracket = async (
   tournamentId: string,
   registrations: RegisteredEntry[],
   maxTeams: number // Use tournament.maxTeams to determine bracket size
-): Match[] => {
+): Promise<Match[]> => {
   const matches: Match[] = [];
   if (registrations.length < 2) {
     // Not enough players to form a bracket
@@ -103,11 +103,11 @@ export const generateSingleEliminationBracket = (
   return matches;
 };
 
-export const advanceWinner = (
+export const advanceWinner = async (
   currentMatches: Match[],
   updatedMatch: Match,
   registrations: RegisteredEntry[]
-): Match[] => {
+): Promise<Match[]> => {
   const newMatches = currentMatches.map(m => m.id === updatedMatch.id ? updatedMatch : m);
 
   if (!updatedMatch.winnerId || updatedMatch.isBye) {
@@ -171,17 +171,18 @@ export const advanceWinner = (
     
     // Recursively advance if this nextMatch now has a winner (due to a bye)
     if (nextMatch.winnerId && nextMatch.isBye) {
-       return advanceWinner(newMatches, nextMatch, registrations);
+       // Since advanceWinner is now async, we need to await its recursive call
+       return await advanceWinner(newMatches, nextMatch, registrations);
     }
   }
   return newMatches;
 };
 
 // Helper to clear subsequent matches if a winner is un-set or a match is reset
-export const clearSubsequentMatches = (
+export const clearSubsequentMatches = async (
   currentMatches: Match[],
   fromMatch: Match
-): Match[] => {
+): Promise<Match[]> => {
   let matchesToClear = [fromMatch.id];
   const clearedMatches = [...currentMatches];
 

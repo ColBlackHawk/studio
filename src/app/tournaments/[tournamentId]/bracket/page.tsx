@@ -11,6 +11,7 @@ import { ArrowLeft, GitFork, Info, Users, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BracketDisplay from "@/components/tournaments/BracketDisplay";
 import { advanceWinner, clearSubsequentMatches } from "@/lib/bracketUtils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Added import
 
 export default function TournamentBracketPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function TournamentBracketPage() {
     fetchTournamentData();
   }, [fetchTournamentData]);
 
-  const handleWinnerSelected = (matchId: string, winnerId: string | undefined, score?: string) => {
+  const handleWinnerSelected = async (matchId: string, winnerId: string | undefined, score?: string) => {
     if (!tournament || !tournament.matches) return;
 
     let currentMatch = tournament.matches.find(m => m.id === matchId);
@@ -53,14 +54,14 @@ export default function TournamentBracketPage() {
 
     if (!winnerId) { // Winner is being cleared
         updatedMatch.score = undefined; // Clear score too
-        newMatches = clearSubsequentMatches(tournament.matches, updatedMatch);
+        newMatches = await clearSubsequentMatches(tournament.matches, updatedMatch);
     } else {
         // If it was a bye, and we are now setting a winner (should not happen if byes are auto-won),
         // or if it's not a bye, then advance.
         if(currentMatch.team1Id && currentMatch.team2Id && !currentMatch.isBye) {
              updatedMatch.isBye = false; // Ensure isBye is false if two teams played
         }
-        newMatches = advanceWinner(tournament.matches, updatedMatch, registrations);
+        newMatches = await advanceWinner(tournament.matches, updatedMatch, registrations);
     }
     
     const updatedTournamentData: Partial<Tournament> = { matches: newMatches };

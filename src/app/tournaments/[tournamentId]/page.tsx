@@ -46,7 +46,7 @@ export default function TournamentDetailPage() {
     }
   }, [tournamentId, router]);
 
-  const handleGenerateBracket = () => {
+  const handleGenerateBracket = async () => {
     if (!tournament || registrations.length < 2) {
       toast({
         title: "Cannot Generate Bracket",
@@ -58,7 +58,7 @@ export default function TournamentDetailPage() {
 
     // For simplicity, we always generate a single elimination bracket.
     // Future enhancement: choose bracket type based on tournament.tournamentType
-    const newMatches = generateSingleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
+    const newMatches = await generateSingleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
     const updatedTournamentData: Partial<Tournament> = { matches: newMatches };
     
     const updated = updateTournament(tournament.id, updatedTournamentData);
