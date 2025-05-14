@@ -63,7 +63,7 @@ export default function TournamentDetailPage() {
       newMatches = await generateDoubleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
        toast({
         title: "Double Elimination Bracket Generated",
-        description: "A double elimination bracket structure has been created.",
+        description: "A double elimination bracket structure has been created. Note: Losers' bracket advancement is simplified.",
       });
     } else {
        toast({
@@ -133,6 +133,7 @@ export default function TournamentDetailPage() {
   }
   
   const canGenerateBracket = registrations.length >= 2;
+  const hasMatches = tournament.matches && tournament.matches.length > 0;
 
   return (
     <div className="space-y-6">
@@ -194,7 +195,7 @@ export default function TournamentDetailPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirm Bracket Generation</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {tournament.matches && tournament.matches.length > 0
+                    {hasMatches
                       ? "This will clear any existing bracket and generate a new one. All current match progress will be lost. Are you sure?"
                       : `This will generate a new ${tournament.tournamentType.replace("_", " ")} bracket for the registered entries. Continue?`}
                   </AlertDialogDescription>
@@ -202,7 +203,7 @@ export default function TournamentDetailPage() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleGenerateBracket}>
-                    {tournament.matches && tournament.matches.length > 0 ? "Reset and Generate" : "Generate Bracket"}
+                    {hasMatches ? "Reset and Generate" : "Generate Bracket"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -222,13 +223,13 @@ export default function TournamentDetailPage() {
             Entry Registration
           </Link>
         </Button>
-        <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!tournament.matches || tournament.matches.length === 0}>
+        <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!hasMatches}>
           <Link href={`/tournaments/${tournamentId}/schedule`} className="flex flex-col items-center justify-center h-24">
             <CalendarDays className="h-8 w-8 mb-1" />
             Match Schedule
           </Link>
         </Button>
-        <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!tournament.matches || tournament.matches.length === 0} title={(!tournament.matches || tournament.matches.length === 0) ? "Generate bracket first" : "View Bracket"}>
+        <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!hasMatches} title={!hasMatches ? "Generate bracket first" : "View Bracket"}>
           <Link href={`/tournaments/${tournamentId}/bracket`} className="flex flex-col items-center justify-center h-24">
             <GitFork className="h-8 w-8 mb-1" />
             View Bracket
@@ -238,3 +239,4 @@ export default function TournamentDetailPage() {
     </div>
   );
 }
+
