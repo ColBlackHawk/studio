@@ -1,9 +1,10 @@
+
 "use client";
 import Link from "next/link";
 import type { Tournament } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Trophy, Info, Edit, BarChart3, ListChecks, ShieldQuestion } from "lucide-react";
+import { CalendarDays, Users, Trophy, Info, Edit, BarChart3, ListChecks, ShieldQuestion, GitFork } from "lucide-react"; // Added GitFork for double elimination
 import { getTournamentRegistrations } from "@/lib/dataService";
 import { useEffect, useState } from "react";
 
@@ -24,8 +25,8 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     switch (type) {
       case "single":
         return <Users className="h-4 w-4 text-muted-foreground" />;
-      case "scotch_double":
-        return <Users className="h-4 w-4 text-muted-foreground" />; // Could be more specific if icon exists
+      case "double_elimination":
+        return <GitFork className="h-4 w-4 text-muted-foreground" />; // Using GitFork as a placeholder for double elimination
       default:
         return <ShieldQuestion className="h-4 w-4 text-muted-foreground" />;
     }

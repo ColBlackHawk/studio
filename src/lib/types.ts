@@ -1,5 +1,5 @@
 
-export type TournamentType = "single" | "scotch_double";
+export type TournamentType = "single" | "double_elimination";
 export type ParticipantType = "player" | "team"; // 'player' means individuals/pairs, 'team' means named teams
 
 export interface Player {
@@ -18,7 +18,7 @@ export interface RegisteredEntry {
   id: string; // Unique ID for this registration
   tournamentId: string;
   entryName: string; // Player nickname if single, or team name
-  players: Player[]; // List of actual players involved. 1 for single, 2 for scotch_double/team
+  players: Player[]; // List of actual players involved. 1 for single, 2 for certain types if player-based, or N for team-based
   seed?: number; // Optional: for bracket seeding
 }
 
@@ -58,3 +58,4 @@ export interface TeamRegistrationPayload {
   entryName: string; // Team Name if participantType is 'team', or main player's nickname
   playerIds: string[]; // IDs of players from the global player list
 }
+

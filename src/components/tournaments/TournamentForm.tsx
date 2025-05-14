@@ -35,7 +35,7 @@ const tournamentFormSchema = z.object({
   name: z.string().min(3, { message: "Tournament name must be at least 3 characters." }),
   owner: z.string().min(2, { message: "Owner name must be at least 2 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
-  tournamentType: z.enum(["single", "scotch_double"]),
+  tournamentType: z.enum(["single", "double_elimination"]),
   participantType: z.enum(["player", "team"]),
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
   maxTeams: z.coerce.number().min(2, { message: "Maximum teams must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}), // Increased max
@@ -64,7 +64,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
         name: "",
         owner: "",
         description: "",
-        tournamentType: "single" as "single" | "scotch_double",
+        tournamentType: "single" as "single" | "double_elimination",
         participantType: "player" as "player" | "team",
         maxTeams: 8,
         scheduleDateTime: new Date(),
@@ -162,7 +162,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                     </FormControl>
                     <SelectContent>
                     <SelectItem value="single">Single Elimination</SelectItem>
-                    <SelectItem value="scotch_double" disabled>Scotch Double (Coming Soon)</SelectItem>
+                    <SelectItem value="double_elimination" disabled>Double Elimination (Coming Soon)</SelectItem>
                     </SelectContent>
                 </Select>
                 <FormDescription>Currently, only Single Elimination generates a bracket.</FormDescription>
@@ -287,3 +287,4 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
     </Form>
   );
 }
+
