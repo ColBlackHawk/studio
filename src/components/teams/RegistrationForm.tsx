@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,7 +40,7 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
   const registrationFormSchema = z.object({
     entryName: tournament.participantType === "team" 
       ? z.string().min(2, { message: "Team name must be at least 2 characters." })
-      : z.string().optional(), // Optional if participant type is player, name comes from player
+      : z.string().optional(), // Optional if participant type is player, name comes from player nickname
     // Player IDs will be managed by selectedPlayers state
   }).refine(() => selectedPlayers.length === maxPlayersToSelect, {
       message: `You must select ${maxPlayersToSelect} player(s).`,
@@ -87,7 +88,7 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
 
     const entryNameToSubmit = tournament.participantType === 'team' 
       ? data.entryName! 
-      : selectedPlayers.map(p => p.name).join(' & '); // Auto-generate name for player-based entries
+      : selectedPlayers.map(p => p.nickname).join(' & '); // Auto-generate name from player nicknames
 
     const payload: TeamRegistrationPayload = {
       entryName: entryNameToSubmit,
@@ -131,7 +132,7 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
             onDeselectPlayer={handleDeselectPlayer}
             maxSelection={maxPlayersToSelect}
             label={`Select Player${maxPlayersToSelect > 1 ? 's' : ''} (${selectedPlayers.length}/${maxPlayersToSelect})`}
-            placeholder="Search and select player(s)..."
+            placeholder="Search and select player(s) by nickname..."
         />
         {form.formState.errors.players && (
              <p className="text-sm font-medium text-destructive">{form.formState.errors.players.message}</p>

@@ -1,10 +1,11 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Player } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } G
+import { Button } from "@/components/ui/button";
 import { Check, X } from 'lucide-react';
 
 interface PlayerSearchInputProps {
@@ -23,7 +24,7 @@ export default function PlayerSearchInput({
   onSelectPlayer,
   onDeselectPlayer,
   maxSelection = 1,
-  placeholder = "Search for player...",
+  placeholder = "Search for player by nickname...",
   label = "Select Player(s)"
 }: PlayerSearchInputProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,7 +34,7 @@ export default function PlayerSearchInput({
   useEffect(() => {
     if (searchTerm) {
       const results = allPlayers.filter(player =>
-        player.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        player.nickname.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !selectedPlayers.find(p => p.id === player.id) // Exclude already selected players
       );
       setFilteredPlayers(results);
@@ -74,7 +75,7 @@ export default function PlayerSearchInput({
         <div className="flex flex-wrap gap-2 mb-2 p-2 border rounded-md bg-muted/50">
           {selectedPlayers.map(player => (
             <div key={player.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-              {player.name}
+              {player.nickname}
               <Button
                 type="button"
                 variant="ghost"
@@ -109,7 +110,7 @@ export default function PlayerSearchInput({
                     // Use onMouseDown to trigger before onBlur hides the dropdown
                     onMouseDown={() => handleSelect(player)}
                   >
-                    <span>{player.name} ({player.ranking ?? 'N/A'})</span>
+                    <span>{player.nickname} ({player.ranking ?? 'N/A'})</span>
                     <Check className="h-4 w-4 text-green-500" />
                   </div>
                 ))}

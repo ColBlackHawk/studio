@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { RegisteredEntry } from "@/lib/types";
@@ -51,7 +52,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
           <TableHeader>
             <TableRow>
               <TableHead><Shield className="inline-block mr-1 h-4 w-4" />Entry Name</TableHead>
-              <TableHead><Users className="inline-block mr-1 h-4 w-4" />Player(s)</TableHead>
+              <TableHead><Users className="inline-block mr-1 h-4 w-4" />Player Nickname(s)</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -59,7 +60,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
             {registrations.map((entry) => (
               <TableRow key={entry.id}>
                 <TableCell className="font-medium">{entry.entryName}</TableCell>
-                <TableCell>{entry.players.map(p => p.name).join(", ")}</TableCell>
+                <TableCell>{entry.players.map(p => p.nickname).join(", ")}</TableCell>
                 <TableCell className="text-right">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

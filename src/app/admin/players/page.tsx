@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,7 +8,7 @@ import { getPlayers, deletePlayer as deletePlayerService } from "@/lib/dataServi
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Edit, Trash2, Users2, Medal, ListChecks } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Users2, Medal, ListChecks, Mail, Phone } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,17 +36,17 @@ export default function ManagePlayersPage() {
     fetchPlayers();
   }, []);
 
-  const handleDeletePlayer = (id: string, name: string) => {
+  const handleDeletePlayer = (id: string, nickname: string) => {
     if (deletePlayerService(id)) {
       fetchPlayers(); // Refresh list
       toast({
         title: "Player Deleted",
-        description: `Player "${name}" has been successfully deleted.`,
+        description: `Player "${nickname}" has been successfully deleted.`,
       });
     } else {
       toast({
         title: "Error",
-        description: `Failed to delete player "${name}".`,
+        description: `Failed to delete player "${nickname}".`,
         variant: "destructive",
       });
     }
@@ -90,7 +91,10 @@ export default function ManagePlayersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead><Users2 className="inline-block mr-1 h-4 w-4" />Name</TableHead>
+                  <TableHead><Users2 className="inline-block mr-1 h-4 w-4" />Nickname</TableHead>
+                  <TableHead>Full Name</TableHead>
+                  <TableHead><Mail className="inline-block mr-1 h-4 w-4" />Email</TableHead>
+                  <TableHead><Phone className="inline-block mr-1 h-4 w-4" />Phone</TableHead>
                   <TableHead><Medal className="inline-block mr-1 h-4 w-4" />Ranking</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -98,7 +102,10 @@ export default function ManagePlayersPage() {
               <TableBody>
                 {players.map((player) => (
                   <TableRow key={player.id}>
-                    <TableCell className="font-medium">{player.name}</TableCell>
+                    <TableCell className="font-medium">{player.nickname}</TableCell>
+                    <TableCell>{player.firstName || player.lastName ? `${player.firstName ?? ''} ${player.lastName ?? ''}`.trim() : "N/A"}</TableCell>
+                    <TableCell>{player.email ?? "N/A"}</TableCell>
+                    <TableCell>{player.phone ?? "N/A"}</TableCell>
                     <TableCell>{player.ranking ?? "N/A"}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button variant="outline" size="icon" asChild title="Edit Player">
@@ -115,12 +122,12 @@ export default function ManagePlayersPage() {
                             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                             <AlertDialogDescription>
                               This action cannot be undone. This will permanently delete the player
-                              "{player.name}". They might still appear in past tournament records if not handled.
+                              "{player.nickname}". They might still appear in past tournament records if not handled.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeletePlayer(player.id, player.name)}>
+                            <AlertDialogAction onClick={() => handleDeletePlayer(player.id, player.nickname)}>
                               Delete
                             </AlertDialogAction>
                           </AlertDialogFooter>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,7 +18,12 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const playerFormSchema = z.object({
-  name: z.string().min(2, { message: "Player name must be at least 2 characters." }),
+  nickname: z.string().min(2, { message: "Nickname must be at least 2 characters." }),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  apaNumber: z.string().optional(),
+  phone: z.string().optional(), // Consider adding regex for phone validation if needed
+  email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')), // Allow empty string
   ranking: z.coerce.number().int().min(0, { message: "Ranking must be a non-negative integer."}).optional(),
 });
 
@@ -32,8 +38,24 @@ interface PlayerFormProps {
 export default function PlayerForm({ player, onSubmit, isEditing = false }: PlayerFormProps) {
   const { toast } = useToast();
   const defaultValues = player
-    ? { ...player, ranking: player.ranking ?? undefined }
-    : { name: "", ranking: undefined };
+    ? { 
+        ...player, 
+        ranking: player.ranking ?? undefined,
+        firstName: player.firstName ?? "",
+        lastName: player.lastName ?? "",
+        apaNumber: player.apaNumber ?? "",
+        phone: player.phone ?? "",
+        email: player.email ?? "",
+      }
+    : { 
+        nickname: "", 
+        firstName: "",
+        lastName: "",
+        apaNumber: "",
+        phone: "",
+        email: "",
+        ranking: undefined 
+      };
 
   const form = useForm<PlayerFormValues>({
     resolver: zodResolver(playerFormSchema),
@@ -43,6 +65,12 @@ export default function PlayerForm({ player, onSubmit, isEditing = false }: Play
   const handleSubmit = (data: PlayerFormValues) => {
     const submissionData: PlayerCreation | Player = {
         ...data,
+        // Ensure optional fields are set to undefined if empty, or keep as is from form
+        firstName: data.firstName || undefined,
+        lastName: data.lastName || undefined,
+        apaNumber: data.apaNumber || undefined,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
         ranking: data.ranking // Zod coerces, so it will be a number or undefined
     };
 
@@ -52,7 +80,7 @@ export default function PlayerForm({ player, onSubmit, isEditing = false }: Play
     onSubmit(submissionData);
     toast({
       title: `Player ${isEditing ? 'updated' : 'created'}`,
-      description: `${data.name} has been successfully ${isEditing ? 'saved' : 'added'}.`,
+      description: `${data.nickname} has been successfully ${isEditing ? 'saved' : 'added'}.`,
     });
   };
 
@@ -61,17 +89,86 @@ export default function PlayerForm({ player, onSubmit, isEditing = false }: Play
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
         <FormField
           control={form.control}
-          name="name"
+          name="nickname"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Player Name</FormLabel>
+              <FormLabel>Nickname (Required)</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., John Doe" {...field} />
+                <Input placeholder="e.g., The Rocket" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+        <div className="grid md:grid-cols-2 gap-8">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., John" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+         <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email (Optional)</FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="e.g., player@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid md:grid-cols-2 gap-8">
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone Number (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., (555) 123-4567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="apaNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>APA Number (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., 12345678" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={form.control}
           name="ranking"

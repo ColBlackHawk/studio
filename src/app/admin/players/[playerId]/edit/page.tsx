@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -49,7 +50,7 @@ export default function EditPlayerPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Edit Player: {player.name}</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">Edit Player: {player.nickname}</h1>
       </div>
       <PlayerForm player={player} onSubmit={handleSubmit} isEditing />
     </div>
