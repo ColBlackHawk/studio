@@ -40,27 +40,26 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     );
   }
 
-  const getEntryIcon = () => {
-    switch(participantType) {
-      case "Player": return <User className="inline-block mr-1 h-4 w-4" />;
-      case "Scotch Doubles": return <Users2 className="inline-block mr-1 h-4 w-4" />;
-      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />; 
-      default: return <Shield className="inline-block mr-1 h-4 w-4" />;
-    }
-  };
-  
   let firstColumnHeader = "Entry Name";
   let secondColumnHeader = "Player(s)";
+  let firstColumnIcon = <Shield className="inline-block mr-1 h-4 w-4" />;
   let secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
 
   if (participantType === "Player") {
     firstColumnHeader = "Player Nickname";
+    firstColumnIcon = <User className="inline-block mr-1 h-4 w-4" />;
     secondColumnHeader = "Full Name";
     secondColumnIcon = <FileSignature className="inline-block mr-1 h-4 w-4" />;
   } else if (participantType === "Scotch Doubles") {
     firstColumnHeader = "Pair Name";
+    firstColumnIcon = <Users2 className="inline-block mr-1 h-4 w-4" />;
+    secondColumnHeader = "Players"; // Nicknames of the pair
+    secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
   } else if (participantType === "Team") {
     firstColumnHeader = "Team Name";
+    firstColumnIcon = <Shield className="inline-block mr-1 h-4 w-4" />;
+    secondColumnHeader = "Players"; // Nicknames of team members
+    secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
   }
 
 
@@ -76,7 +75,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{getEntryIcon()}{firstColumnHeader}</TableHead>
+              <TableHead>{firstColumnIcon}{firstColumnHeader}</TableHead>
               <TableHead>{secondColumnIcon}{secondColumnHeader}</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -121,4 +120,3 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     </Card>
   );
 }
-
