@@ -5,7 +5,7 @@ import type { Match, RegisteredEntry, TournamentType } from "@/lib/types";
 import MatchCard from "./MatchCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Shield, ListTree } from "lucide-react";
+import { Shield, ListTree, Trophy } from "lucide-react";
 
 interface BracketDisplayProps {
   matches: Match[];
