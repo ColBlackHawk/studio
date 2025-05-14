@@ -19,18 +19,21 @@ export interface RegisteredEntry {
   tournamentId: string;
   entryName: string; // Player nickname if single, or team name
   players: Player[]; // List of actual players involved. 1 for single, 2 for scotch_double/team
-  seed?: number;
+  seed?: number; // Optional: for bracket seeding
 }
 
 export interface Match {
-  id: string;
-  round: number;
-  matchNumberInRound: number;
-  team1Id?: string; // ID of RegisteredEntry
-  team2Id?: string; // ID of RegisteredEntry
-  winnerId?: string; // ID of RegisteredEntry
-  score?: string; // e.g., "2-1"
-  isPlaceholder?: boolean; // For bracket UI
+  id: string; // Unique ID for this match
+  round: number; // e.g., 1, 2, 3... (1-indexed)
+  matchNumberInRound: number; // e.g., 1, 2 for round 1; 1 for round 2 (1-indexed)
+  team1Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
+  team2Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
+  winnerId?: string; // ID of RegisteredEntry who won this match
+  score?: string; // e.g., "2-1", "W-F"
+  isBye?: boolean; // If true, team1Id (if present) auto-advances. team2Id should be undefined.
+  // Optional: for display convenience, could be populated dynamically
+  // team1Name?: string; // Resolved name of team1Id
+  // team2Name?: string; // Resolved name of team2Id
 }
 
 export interface Tournament {
@@ -47,7 +50,7 @@ export interface Tournament {
 }
 
 // For forms, use Partial<T> for edits and Omit<T, 'id'> for creations
-export type TournamentCreation = Omit<Tournament, "id" | "matches">;
+export type TournamentCreation = Omit<Tournament, "id" | "matches"> & { matchesInfo?: string }; // matchesInfo for form
 export type PlayerCreation = Omit<Player, "id">;
 
 // Represents the structure of a team registration payload

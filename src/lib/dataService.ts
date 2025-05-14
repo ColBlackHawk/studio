@@ -1,3 +1,4 @@
+
 import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation } from "./types";
 import { getItem, setItem, removeItem } from "./localStorage";
 import { LOCALSTORAGE_KEYS } from "./constants";
@@ -14,10 +15,12 @@ export const getTournamentById = (id: string): Tournament | undefined => {
 
 export const createTournament = (tournamentData: TournamentCreation): Tournament => {
   const tournaments = getTournaments();
+  // Remove matchesInfo before saving if it exists
+  const { matchesInfo, ...restOfData } = tournamentData;
   const newTournament: Tournament = {
-    ...tournamentData,
-    id: crypto.randomUUID(), // Ensure crypto.randomUUID() is available or use another UUID generator
-    matches: tournamentData.matches || [],
+    ...restOfData,
+    id: crypto.randomUUID(), 
+    matches: [], // Initialize with empty matches array
   };
   tournaments.push(newTournament);
   setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
@@ -28,7 +31,18 @@ export const updateTournament = (id: string, updates: Partial<Tournament>): Tour
   let tournaments = getTournaments();
   const index = tournaments.findIndex(t => t.id === id);
   if (index !== -1) {
-    tournaments[index] = { ...tournaments[index], ...updates };
+    // If matchesInfo is part of updates, handle it; otherwise, just spread updates
+    const { matchesInfo, ...restOfUpdates } = updates as TournamentCreation & Partial<Tournament>;
+    
+    // Ensure existing matches are preserved if not explicitly being updated
+    const currentMatches = tournaments[index].matches || [];
+    
+    tournaments[index] = { 
+        ...tournaments[index], 
+        ...restOfUpdates,
+        // Explicitly handle 'matches' update, don't let it be accidentally overridden by undefined from form
+        matches: updates.matches !== undefined ? updates.matches : currentMatches 
+    };
     setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
     return tournaments[index];
   }

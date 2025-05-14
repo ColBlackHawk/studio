@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,9 +38,7 @@ const tournamentFormSchema = z.object({
   tournamentType: z.enum(["single", "scotch_double"]),
   participantType: z.enum(["player", "team"]),
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
-  maxTeams: z.coerce.number().min(2, { message: "Maximum teams must be at least 2." }).max(32, { message: "Maximum teams cannot exceed 32."}),
-  // Matches field can be complex; for now, a simple text area for match notes or manual entry.
-  // For a real app, this would be a more structured input or generated based on registrations.
+  maxTeams: z.coerce.number().min(2, { message: "Maximum teams must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}), // Increased max
   matchesInfo: z.string().optional(), 
 });
 
@@ -57,7 +56,9 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
     ? { 
         ...tournament, 
         scheduleDateTime: new Date(tournament.scheduleDateTime),
-        matchesInfo: tournament.matches ? JSON.stringify(tournament.matches, null, 2) : '' // Example for matches
+        // For editing, we don't repopulate matchesInfo from existing matches to avoid complex JSON editing in a textarea.
+        // Users should use the bracket generation/reset feature for match management.
+        matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : ''
       }
     : {
         name: "",
@@ -76,33 +77,34 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
   });
 
   const handleSubmit = (data: TournamentFormValues) => {
-    const submissionData: TournamentCreation | Tournament = {
-      ...data,
+    // We don't directly use matchesInfo to create/update matches from the form anymore.
+    // Bracket generation handles match creation.
+    const { matchesInfo, ...submissionDataActual } = data;
+
+    const submissionPayload: TournamentCreation | Tournament = {
+      ...submissionDataActual,
       scheduleDateTime: data.scheduleDateTime.toISOString(),
-      // Basic handling for matches - in a real app, this would be more structured.
-      matches: data.matchesInfo ? tryParseMatches(data.matchesInfo) : [],
+      // 'matches' array is NOT part of the form values directly.
+      // It's managed by bracket generation/reset and winner selection.
+      // If it's an update, existing matches are preserved unless explicitly changed by other logic.
     };
+
     if (isEditing && tournament) {
-      (submissionData as Tournament).id = tournament.id;
+      (submissionPayload as Tournament).id = tournament.id;
+      // Preserve existing matches if not generating new ones
+      (submissionPayload as Tournament).matches = tournament.matches;
+    } else {
+        // For new tournaments, matches will be undefined or empty, to be generated later.
+         (submissionPayload as TournamentCreation).matches = [];
     }
-    onSubmit(submissionData);
+    
+    onSubmit(submissionPayload);
     toast({
       title: `Tournament ${isEditing ? 'updated' : 'created'}`,
       description: `${data.name} has been successfully ${isEditing ? 'updated' : 'saved'}.`,
     });
   };
   
-  const tryParseMatches = (jsonString: string) => {
-    try {
-      const parsed = JSON.parse(jsonString);
-      if (Array.isArray(parsed)) return parsed;
-      return [];
-    } catch (e) {
-      return []; // Or handle error, e.g., by showing a toast
-    }
-  };
-
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
@@ -160,9 +162,10 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                     </FormControl>
                     <SelectContent>
                     <SelectItem value="single">Single Elimination</SelectItem>
-                    <SelectItem value="scotch_double">Scotch Double</SelectItem>
+                    <SelectItem value="scotch_double" disabled>Scotch Double (Coming Soon)</SelectItem>
                     </SelectContent>
                 </Select>
+                <FormDescription>Currently, only Single Elimination generates a bracket.</FormDescription>
                 <FormMessage />
                 </FormItem>
             )}
@@ -223,7 +226,6 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                         disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
                         initialFocus
                     />
-                    {/* Basic Time Picker - For a real app use a dedicated time picker component */}
                     <div className="p-2 border-t">
                       <Input 
                         type="time" 
@@ -251,7 +253,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                 <FormControl>
                     <Input type="number" placeholder="e.g., 16" {...field} />
                 </FormControl>
-                <FormDescription>Typically a power of 2 (e.g., 4, 8, 16, 32).</FormDescription>
+                <FormDescription>Typically a power of 2 (e.g., 4, 8, 16, 32, 64, 128).</FormDescription>
                 <FormMessage />
                 </FormItem>
             )}
@@ -262,11 +264,17 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
           name="matchesInfo"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Matches Information (Optional, JSON format)</FormLabel>
+              <FormLabel>Matches Information</FormLabel>
               <FormControl>
-                <Textarea placeholder='e.g., [{"round": 1, "matchNumberInRound": 1, "team1Id": "...", "team2Id": "..."}]' {...field} rows={5} />
+                <Textarea 
+                    placeholder='Brackets are managed via the "Generate/Reset Bracket" button on the tournament details page.' 
+                    {...field} 
+                    rows={3} 
+                    readOnly 
+                    className="bg-muted/50"
+                />
               </FormControl>
-              <FormDescription>Manual entry for match details. For structured data, use JSON array format.</FormDescription>
+              <FormDescription>This field is informational. Use bracket tools to manage matches.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
