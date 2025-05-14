@@ -24,16 +24,15 @@ export interface RegisteredEntry {
 
 export interface Match {
   id: string; // Unique ID for this match
-  round: number; // e.g., 1, 2, 3... (1-indexed)
-  matchNumberInRound: number; // e.g., 1, 2 for round 1; 1 for round 2 (1-indexed)
+  tournamentId: string;
+  round: number; // Round number within its specific bracket (winners, losers)
+  matchNumberInRound: number; // Order within that round
+  bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset'; // Type of bracket this match belongs to
   team1Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
   team2Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
   winnerId?: string; // ID of RegisteredEntry who won this match
   score?: string; // e.g., "2-1", "W-F"
   isBye?: boolean; // If true, team1Id (if present) auto-advances. team2Id should be undefined.
-  // Optional: for display convenience, could be populated dynamically
-  // team1Name?: string; // Resolved name of team1Id
-  // team2Name?: string; // Resolved name of team2Id
 }
 
 export interface Tournament {
@@ -58,4 +57,3 @@ export interface TeamRegistrationPayload {
   entryName: string; // Team Name if participantType is 'team', or main player's nickname
   playerIds: string[]; // IDs of players from the global player list
 }
-

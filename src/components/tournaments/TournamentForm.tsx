@@ -38,7 +38,7 @@ const tournamentFormSchema = z.object({
   tournamentType: z.enum(["single", "double_elimination"]),
   participantType: z.enum(["player", "team"]),
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
-  maxTeams: z.coerce.number().min(2, { message: "Maximum teams must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}), // Increased max
+  maxTeams: z.coerce.number().min(2, { message: "Maximum teams/participants must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}),
   matchesInfo: z.string().optional(), 
 });
 
@@ -56,8 +56,6 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
     ? { 
         ...tournament, 
         scheduleDateTime: new Date(tournament.scheduleDateTime),
-        // For editing, we don't repopulate matchesInfo from existing matches to avoid complex JSON editing in a textarea.
-        // Users should use the bracket generation/reset feature for match management.
         matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : ''
       }
     : {
@@ -77,24 +75,17 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
   });
 
   const handleSubmit = (data: TournamentFormValues) => {
-    // We don't directly use matchesInfo to create/update matches from the form anymore.
-    // Bracket generation handles match creation.
     const { matchesInfo, ...submissionDataActual } = data;
 
     const submissionPayload: TournamentCreation | Tournament = {
       ...submissionDataActual,
       scheduleDateTime: data.scheduleDateTime.toISOString(),
-      // 'matches' array is NOT part of the form values directly.
-      // It's managed by bracket generation/reset and winner selection.
-      // If it's an update, existing matches are preserved unless explicitly changed by other logic.
     };
 
     if (isEditing && tournament) {
       (submissionPayload as Tournament).id = tournament.id;
-      // Preserve existing matches if not generating new ones
-      (submissionPayload as Tournament).matches = tournament.matches;
+      (submissionPayload as Tournament).matches = tournament.matches; // Preserve existing matches
     } else {
-        // For new tournaments, matches will be undefined or empty, to be generated later.
          (submissionPayload as TournamentCreation).matches = [];
     }
     
@@ -162,10 +153,10 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                     </FormControl>
                     <SelectContent>
                     <SelectItem value="single">Single Elimination</SelectItem>
-                    <SelectItem value="double_elimination" disabled>Double Elimination (Coming Soon)</SelectItem>
+                    <SelectItem value="double_elimination">Double Elimination</SelectItem>
                     </SelectContent>
                 </Select>
-                <FormDescription>Currently, only Single Elimination generates a bracket.</FormDescription>
+                <FormDescription>Select the bracket format for the tournament.</FormDescription>
                 <FormMessage />
                 </FormItem>
             )}
@@ -287,4 +278,3 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
     </Form>
   );
 }
-

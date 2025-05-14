@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, CalendarDays, Users, Trophy, Info, Edit, ListChecks, Ticket, LineChart, RefreshCw, GitFork } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { generateSingleEliminationBracket } from "@/lib/bracketUtils";
+import { generateSingleEliminationBracket, generateDoubleEliminationBracket } from "@/lib/bracketUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,17 +56,32 @@ export default function TournamentDetailPage() {
       return;
     }
 
-    // For simplicity, we always generate a single elimination bracket.
-    // Future enhancement: choose bracket type based on tournament.tournamentType
-    const newMatches = await generateSingleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
+    let newMatches: Match[] = [];
+    if (tournament.tournamentType === "single") {
+      newMatches = await generateSingleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
+    } else if (tournament.tournamentType === "double_elimination") {
+      newMatches = await generateDoubleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
+       toast({
+        title: "Double Elimination Bracket Generated (Simplified)",
+        description: "A simplified DE bracket structure has been created. Full advancement logic is complex.",
+      });
+    } else {
+       toast({
+        title: "Unsupported Bracket Type",
+        description: `Bracket generation for ${tournament.tournamentType} is not yet fully supported.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const updatedTournamentData: Partial<Tournament> = { matches: newMatches };
     
     const updated = updateTournament(tournament.id, updatedTournamentData);
     if (updated) {
-      setTournament(updated); // Update local state to reflect new matches
+      setTournament(updated); 
       toast({
         title: "Bracket Generated",
-        description: `A new single elimination bracket has been generated for ${tournament.name}.`,
+        description: `A new ${tournament.tournamentType.replace("_", " ")} bracket has been generated for ${tournament.name}.`,
       });
     } else {
       toast({
@@ -168,7 +183,7 @@ export default function TournamentDetailPage() {
                   <AlertDialogDescription>
                     {tournament.matches && tournament.matches.length > 0
                       ? "This will clear any existing bracket and generate a new one. All current match progress will be lost. Are you sure?"
-                      : "This will generate a new bracket for the registered entries. Continue?"}
+                      : `This will generate a new ${tournament.tournamentType.replace("_", " ")} bracket for the registered entries. Continue?`}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -202,7 +217,7 @@ export default function TournamentDetailPage() {
         </Button>
         <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!tournament.matches || tournament.matches.length === 0} title={(!tournament.matches || tournament.matches.length === 0) ? "Generate bracket first" : "View Bracket"}>
           <Link href={`/tournaments/${tournamentId}/bracket`} className="flex flex-col items-center justify-center h-24">
-            <GitFork className="h-8 w-8 mb-1" /> {/* Changed from LineChart */}
+            <GitFork className="h-8 w-8 mb-1" />
             View Bracket
           </Link>
         </Button>

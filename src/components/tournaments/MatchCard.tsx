@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trophy, UserCheck, UserX, Users } from "lucide-react";
+import { Trophy, UserCheck, UserX, Users, Shield, ListTree, GitMerge } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
   }, [match.score]);
 
   const handleSetWinner = (participantId: string | undefined) => {
-    if (match.winnerId === participantId) { // Clicking the winner again clears them
+    if (match.winnerId === participantId) { 
       onWinnerSelected(undefined, undefined);
       setScore("");
     } else {
@@ -38,8 +38,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
   };
   
   const handleScoreBlur = () => {
-    // Only update score if a winner is already selected, or if clearing score for a decided match
-    if (match.winnerId || (!match.winnerId && match.score)) {
+    if (match.winnerId || (!match.winnerId && match.score !== (match.score || ""))) { // Update if winner selected OR score changed for undecided match
         onWinnerSelected(match.winnerId, score || undefined);
     }
   };
@@ -48,8 +47,14 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
   const team2Name = team2?.entryName ?? (match.team2Id ? "Waiting..." : "Bye");
 
   const isClickable = (teamId?: string) => {
-    if (!teamId) return false; // Cannot select TBD/Bye as winner
-    if (match.isBye && teamId === match.team1Id) return false; // Cannot change winner of a bye match
+    if (!teamId) return false; 
+    if (match.isBye && (teamId === match.team1Id || teamId === match.team2Id) && match.winnerId === teamId) {
+      // If it's a bye and the winner is already set to the bye recipient, don't allow change.
+      // Exception: if somehow a bye match winner is cleared, it should become clickable again.
+      if (match.winnerId) return false;
+    }
+    // For Grand Final Reset, if it's marked as a bye (not active), it's not clickable
+    if (match.bracketType === 'grandFinalReset' && match.isBye) return false;
     return true;
   }
   
@@ -59,22 +64,53 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
       "border",
       isWinner ? "bg-accent text-accent-foreground border-accent shadow-md" : "bg-card hover:bg-muted/50",
       !isClickable(teamId) ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-      !teamId && "text-muted-foreground italic" // Style for TBD/Bye
+      !teamId && "text-muted-foreground italic" 
     );
   };
 
+  const getBracketTypeIndicator = () => {
+    switch(match.bracketType) {
+        case 'winners': return <Shield className="h-3 w-3 text-green-500" title="Winners' Bracket" />;
+        case 'losers': return <ListTree className="h-3 w-3 text-orange-500" title="Losers' Bracket" />;
+        case 'grandFinal': return <Trophy className="h-3 w-3 text-yellow-500" title="Grand Final" />;
+        case 'grandFinalReset': return <GitMerge className="h-3 w-3 text-purple-500" title="Grand Final Reset" />;
+        default: return null;
+    }
+  }
+  
+  const matchIdentifier = `${match.bracketType === 'winners' ? 'W' : match.bracketType === 'losers' ? 'L' : match.bracketType === 'grandFinal' ? 'GF' : 'GFR'}${match.round}-${match.matchNumberInRound}`;
 
-  if (match.isBye) {
+
+  if (match.isBye && match.bracketType !== 'grandFinalReset') { // grandFinalReset can be a bye initially but become active
     return (
       <Card className="shadow-md bg-muted/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-center">
-            Match {match.round}-{match.matchNumberInRound}
+        <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
+          <CardTitle className="text-xs text-center text-muted-foreground">
+            Match {matchIdentifier}
           </CardTitle>
+          {getBracketTypeIndicator()}
         </CardHeader>
         <CardContent className="text-center py-2">
-          <p className="font-semibold text-primary">{team1Name}</p>
+          <p className="font-semibold text-primary">{match.team1Id ? (team1?.entryName || "Advancing...") : (team2?.entryName || "Advancing...")}</p>
           <p className="text-sm text-muted-foreground">BYE (Auto-Win)</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Special display for inactive Grand Final Reset
+  if (match.bracketType === 'grandFinalReset' && match.isBye) {
+     return (
+      <Card className="shadow-md bg-muted/20 opacity-60">
+        <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
+          <CardTitle className="text-xs text-center text-muted-foreground">
+            Match {matchIdentifier}
+          </CardTitle>
+           {getBracketTypeIndicator()}
+        </CardHeader>
+        <CardContent className="text-center py-4">
+          <p className="text-sm text-muted-foreground">Not Activated</p>
+          <p className="text-xs text-muted-foreground">(If LB winner wins Grand Final)</p>
         </CardContent>
       </Card>
     );
@@ -83,10 +119,11 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
 
   return (
     <Card className="shadow-md">
-      <CardHeader className="pb-2 pt-3">
-        <CardTitle className="text-sm text-center text-muted-foreground">
-          Match {match.round}-{match.matchNumberInRound}
+      <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
+        <CardTitle className="text-xs text-center text-muted-foreground">
+          Match {matchIdentifier}
         </CardTitle>
+        {getBracketTypeIndicator()}
       </CardHeader>
       <CardContent className="space-y-2 py-2">
         <Button
@@ -98,7 +135,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
         >
           <div className="flex items-center justify-between w-full">
             <span className="truncate">{team1Name}</span>
-            {match.winnerId === match.team1Id && <Trophy className="h-4 w-4 text-yellow-500 ml-2" />}
+            {match.winnerId === match.team1Id && <Trophy className="h-4 w-4 text-yellow-400 ml-2" />}
           </div>
         </Button>
         
@@ -113,11 +150,11 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
         >
            <div className="flex items-center justify-between w-full">
             <span className="truncate">{team2Name}</span>
-            {match.winnerId === match.team2Id && <Trophy className="h-4 w-4 text-yellow-500 ml-2" />}
+            {match.winnerId === match.team2Id && <Trophy className="h-4 w-4 text-yellow-400 ml-2" />}
           </div>
         </Button>
       </CardContent>
-      { (team1 || team2) && !match.isBye && ( // Show score input if not a bye and at least one team known
+      { (team1 || team2 || (match.bracketType === 'grandFinalReset' && !match.isBye) ) && !match.isBye && ( 
           <CardFooter className="pt-2 pb-3">
             <div className="w-full space-y-1">
               <Label htmlFor={`score-${match.id}`} className="text-xs text-muted-foreground">Score (Optional)</Label>
@@ -129,7 +166,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
                 onChange={handleScoreChange}
                 onBlur={handleScoreBlur}
                 className="h-8 text-sm"
-                disabled={!match.team1Id || !match.team2Id} // Disable if both teams not present
+                disabled={(!match.team1Id || !match.team2Id) && !(match.bracketType === 'grandFinalReset' && !match.isBye)} 
               />
             </div>
           </CardFooter>

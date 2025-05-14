@@ -7,11 +7,11 @@ import Link from "next/link";
 import type { Tournament, RegisteredEntry, Match } from "@/lib/types";
 import { getTournamentById, getTournamentRegistrations, updateTournament } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, GitFork, Info, Users, Trophy } from "lucide-react";
+import { ArrowLeft, GitFork, Info, Users, Trophy, Shield, ListTree, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BracketDisplay from "@/components/tournaments/BracketDisplay";
 import { advanceWinner, clearSubsequentMatches } from "@/lib/bracketUtils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Added import
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; 
 
 export default function TournamentBracketPage() {
   const router = useRouter();
@@ -47,35 +47,32 @@ export default function TournamentBracketPage() {
 
     let currentMatch = tournament.matches.find(m => m.id === matchId);
     if (!currentMatch) return;
-
-    // Create a deep copy of the match to update
+    
     let updatedMatch = { ...currentMatch, winnerId, score };
     let newMatches: Match[];
 
-    if (!winnerId) { // Winner is being cleared
-        updatedMatch.score = undefined; // Clear score too
-        newMatches = await clearSubsequentMatches(tournament.matches, updatedMatch);
+    if (!winnerId) { 
+        updatedMatch.score = undefined; 
+        newMatches = await clearSubsequentMatches(tournament.matches, updatedMatch, tournament.tournamentType);
     } else {
-        // If it was a bye, and we are now setting a winner (should not happen if byes are auto-won),
-        // or if it's not a bye, then advance.
         if(currentMatch.team1Id && currentMatch.team2Id && !currentMatch.isBye) {
-             updatedMatch.isBye = false; // Ensure isBye is false if two teams played
+             updatedMatch.isBye = false; 
         }
-        newMatches = await advanceWinner(tournament.matches, updatedMatch, registrations);
+        newMatches = await advanceWinner(tournament.matches, updatedMatch, registrations, tournament.tournamentType);
     }
     
     const updatedTournamentData: Partial<Tournament> = { matches: newMatches };
     const updated = updateTournament(tournament.id, updatedTournamentData);
 
     if (updated) {
-      setTournament(updated); // Update local state
+      setTournament(updated); 
       toast({
         title: winnerId ? "Winner Updated" : "Match Reset",
         description: `Match progress saved for ${tournament.name}.`,
       });
     } else {
       toast({ title: "Error", description: "Failed to update bracket.", variant: "destructive" });
-      fetchTournamentData(); // Re-fetch to reset to last known good state
+      fetchTournamentData(); 
     }
   };
   
@@ -99,6 +96,11 @@ export default function TournamentBracketPage() {
       </div>
     );
   }
+
+  const winnersBracketMatches = tournament.matches?.filter(m => m.bracketType === 'winners') || [];
+  const losersBracketMatches = tournament.matches?.filter(m => m.bracketType === 'losers') || [];
+  const grandFinalMatches = tournament.matches?.filter(m => m.bracketType === 'grandFinal' || m.bracketType === 'grandFinalReset') || [];
+
 
   if (!tournament.matches || tournament.matches.length === 0) {
     return (
@@ -127,8 +129,8 @@ export default function TournamentBracketPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="space-y-10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild>
             <Link href={`/tournaments/${tournamentId}`}>
@@ -143,17 +145,63 @@ export default function TournamentBracketPage() {
             Click on a participant in a match to mark them as the winner. Click again to clear.
         </p>
       </div>
-       <p className="text-sm text-muted-foreground md:hidden text-center">
+       <p className="text-sm text-muted-foreground md:hidden text-center mb-4">
             Tap on a participant to mark as winner. Tap again to clear.
       </p>
 
-      <BracketDisplay
-        matches={tournament.matches}
-        registrations={registrations}
-        onWinnerSelected={handleWinnerSelected}
-      />
+      {tournament.tournamentType === 'double_elimination' && (
+        <Card className="bg-destructive/5 text-destructive-foreground border-destructive/20 p-4 rounded-lg shadow-md">
+          <CardHeader className="p-2">
+            <CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5"/>Double Elimination Notice</CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 text-sm">
+            <p>Double elimination bracket generation and advancement logic is currently simplified. Full DE features are complex and under development. Some matches in the Losers' Bracket might not populate correctly or advance automatically as expected yet.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {winnersBracketMatches.length > 0 && (
+        <BracketDisplay
+          matches={winnersBracketMatches}
+          registrations={registrations}
+          onWinnerSelected={handleWinnerSelected}
+          bracketTypeTitle="Winners' Bracket"
+          tournamentType={tournament.tournamentType}
+        />
+      )}
+
+      {tournament.tournamentType === 'double_elimination' && losersBracketMatches.length > 0 && (
+         <BracketDisplay
+          matches={losersBracketMatches}
+          registrations={registrations}
+          onWinnerSelected={handleWinnerSelected}
+          bracketTypeTitle="Losers' Bracket"
+          tournamentType={tournament.tournamentType}
+        />
+      )}
+      
+      {tournament.tournamentType === 'double_elimination' && grandFinalMatches.length > 0 && (
+         <BracketDisplay
+          matches={grandFinalMatches.sort((a,b) => a.round - b.round)} // Ensure GF reset is last
+          registrations={registrations}
+          onWinnerSelected={handleWinnerSelected}
+          bracketTypeTitle="Grand Final"
+          tournamentType={tournament.tournamentType}
+        />
+      )}
+
+      {tournament.tournamentType === 'single' && tournament.matches && tournament.matches.length > 0 && (
+         <BracketDisplay
+            matches={tournament.matches}
+            registrations={registrations}
+            onWinnerSelected={handleWinnerSelected}
+            bracketTypeTitle="Bracket"
+            tournamentType={tournament.tournamentType}
+          />
+      )}
+      
        <div className="mt-8 text-center text-sm text-muted-foreground">
-         <p>This is a single elimination bracket. Double elimination support is planned.</p>
+         <p>This is a {tournament.tournamentType.replace("_", " ")} bracket.</p>
       </div>
     </div>
   );
