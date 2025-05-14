@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import type { Tournament, Player, RegisteredEntry, TeamRegistrationPayload } from "@/lib/types";
+import type { Tournament, Player, TeamRegistrationPayload } from "@/lib/types";
 import { getPlayers } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,34 +35,41 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
     setAllPlayers(getPlayers());
   }, []);
 
-  // For player-based tournaments, double_elimination (like scotch_double was) implies pairs. Single elimination is individual.
-  // For team-based, this number can be higher, but the form currently supports selecting up to 2.
-  // This specific logic might need adjustment based on how 'double_elimination' for 'player' participantType is intended to work.
-  const maxPlayersToSelect = tournament.participantType === 'player' && tournament.tournamentType === "double_elimination" ? 2 : 1;
+  let maxPlayersToSelect = 1;
+  let minPlayersToSelect = 1;
+  let playerSelectionMessage = "Select 1 player.";
+  let entryNameFieldLabel = "Player Nickname (auto-generated)";
+  let showEntryNameField = false;
+
+  switch (tournament.participantType) {
+    case "Player":
+      maxPlayersToSelect = 1;
+      minPlayersToSelect = 1;
+      playerSelectionMessage = `Select 1 Player (${selectedPlayers.length}/${maxPlayersToSelect})`;
+      break;
+    case "Scotch Doubles":
+      maxPlayersToSelect = 2;
+      minPlayersToSelect = 2;
+      playerSelectionMessage = `Select 2 Players for the pair (${selectedPlayers.length}/${maxPlayersToSelect})`;
+      entryNameFieldLabel = "Pair Name (e.g., PlayerA & PlayerB)"; // or allow custom
+      showEntryNameField = false; // Auto-generate from player nicknames
+      break;
+    case "Team":
+      maxPlayersToSelect = 2; // For now, can be made dynamic based on tournament settings
+      minPlayersToSelect = 1;
+      playerSelectionMessage = `Select 1 or 2 Players for the Team (${selectedPlayers.length}/${maxPlayersToSelect})`;
+      entryNameFieldLabel = "Team Name";
+      showEntryNameField = true;
+      break;
+  }
   
   const registrationFormSchema = z.object({
-    entryName: tournament.participantType === "team" 
-      ? z.string().min(2, { message: "Team name must be at least 2 characters." })
-      : z.string().optional(), // Optional if participant type is player, name comes from player nickname
-    // Player IDs will be managed by selectedPlayers state
-  }).refine(() => selectedPlayers.length > 0 && selectedPlayers.length <= maxPlayersToSelect , {
-      message: `You must select ${maxPlayersToSelect === 1 ? '1 player' : `1 or ${maxPlayersToSelect} players`}.`,
+    entryName: showEntryNameField
+      ? z.string().min(2, { message: `${entryNameFieldLabel} must be at least 2 characters.` })
+      : z.string().optional(),
+  }).refine(() => selectedPlayers.length >= minPlayersToSelect && selectedPlayers.length <= maxPlayersToSelect , {
+      message: `You must select ${minPlayersToSelect === maxPlayersToSelect ? minPlayersToSelect : `${minPlayersToSelect}-${maxPlayersToSelect}`} player(s) for ${tournament.participantType}.`,
       path: ["players"], 
-  }).refine(() => {
-      if (tournament.participantType === 'player' && tournament.tournamentType === 'double_elimination') {
-        return selectedPlayers.length === 2;
-      }
-      if (tournament.participantType === 'player' && tournament.tournamentType === 'single') {
-        return selectedPlayers.length === 1;
-      }
-      // For team-based, allow 1 or 2 for now (can be expanded)
-      if (tournament.participantType === 'team') {
-         return selectedPlayers.length >= 1 && selectedPlayers.length <= 2; // Simplified for now
-      }
-      return true;
-  }, {
-    message: `Incorrect number of players selected for this tournament type. Select ${tournament.participantType === 'player' && tournament.tournamentType === 'double_elimination' ? '2 players for Double Elimination (player-based)' : '1 player for Single Elimination (player-based)'}. For teams, select 1 or 2 players.`,
-    path: ["players"],
   });
 
 
@@ -75,17 +82,24 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
     },
   });
 
+   useEffect(() => {
+    // Reset selected players and form if tournament participant type changes contextually (e.g. parent component re-renders with new tournament prop)
+    setSelectedPlayers([]);
+    form.reset({ entryName: "" });
+    // Trigger re-validation if needed, or rely on user interaction
+    form.trigger(["players"]);
+  }, [tournament.participantType, form]);
+
   const handleSelectPlayer = (player: Player) => {
     if (selectedPlayers.length < maxPlayersToSelect) {
       setSelectedPlayers(prev => [...prev, player]);
-    } else if (tournament.participantType === 'team' && selectedPlayers.length < 2) { 
-      // Allow up to 2 for teams for now
-       setSelectedPlayers(prev => [...prev, player]);
+      form.trigger(["players"]); // Trigger validation for player selection
     }
   };
 
   const handleDeselectPlayer = (playerId: string) => {
     setSelectedPlayers(prev => prev.filter(p => p.id !== playerId));
+    form.trigger(["players"]); // Trigger validation for player selection
   };
 
   const handleSubmit = (data: RegistrationFormValues) => {
@@ -98,36 +112,29 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
       return;
     }
     
-    // Re-validate player count before submission as refine might not cover all dynamic label updates.
-    let expectedPlayerCount = 1;
-    if (tournament.participantType === 'player') {
-        if (tournament.tournamentType === 'double_elimination') expectedPlayerCount = 2;
-        else expectedPlayerCount = 1;
-    } else { // team
-        // For teams, we are allowing 1 or 2 players for now in this form.
-        // This part could be made more flexible (e.g. min/max players per team setting on tournament)
-        if (selectedPlayers.length < 1 || selectedPlayers.length > 2) {
-             toast({
-                title: "Player Selection Error",
-                description: `Teams must have 1 or 2 players for this registration form.`,
-                variant: "destructive",
-            });
-            return;
-        }
-    }
-    if (tournament.participantType === 'player' && selectedPlayers.length !== expectedPlayerCount) {
-         toast({
+    if (selectedPlayers.length < minPlayersToSelect || selectedPlayers.length > maxPlayersToSelect) {
+        toast({
             title: "Player Selection Error",
-            description: `Please select exactly ${expectedPlayerCount} player(s) for this tournament type.`,
+            description: `Please select ${minPlayersToSelect === maxPlayersToSelect ? minPlayersToSelect : `${minPlayersToSelect} to ${maxPlayersToSelect}`} player(s) for ${tournament.participantType}.`,
             variant: "destructive",
         });
         return;
     }
 
+    let entryNameToSubmit = data.entryName || "";
+    if (tournament.participantType === "Player" && selectedPlayers.length > 0) {
+      entryNameToSubmit = selectedPlayers[0].nickname;
+    } else if (tournament.participantType === "Scotch Doubles" && selectedPlayers.length === 2) {
+      entryNameToSubmit = selectedPlayers.map(p => p.nickname).join(' & ');
+    } else if (tournament.participantType === "Team" && !data.entryName) {
+        toast({
+            title: "Entry Name Required",
+            description: "Please enter a team name.",
+            variant: "destructive",
+        });
+        return;
+    }
 
-    const entryNameToSubmit = tournament.participantType === 'team' 
-      ? data.entryName! 
-      : selectedPlayers.map(p => p.nickname).join(' & '); 
 
     const payload: TeamRegistrationPayload = {
       entryName: entryNameToSubmit,
@@ -143,30 +150,21 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
     });
   };
   
-  let playerSelectionLabel = `Select Player(s)`;
-  if (tournament.participantType === 'player') {
-    playerSelectionLabel = tournament.tournamentType === 'double_elimination' 
-      ? `Select 2 Players (${selectedPlayers.length}/2)`
-      : `Select 1 Player (${selectedPlayers.length}/1)`;
-  } else { // team
-    playerSelectionLabel = `Select 1 or 2 Players for Team (${selectedPlayers.length}/${2})`;
-  }
-
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-6 border rounded-lg shadow-md bg-card">
         <h3 className="text-xl font-semibold text-primary">Register for: {tournament.name}</h3>
+        <p className="text-sm text-muted-foreground">Participant Type: <span className="font-medium text-foreground">{tournament.participantType}</span></p>
         
-        {tournament.participantType === "team" && (
+        {showEntryNameField && (
           <FormField
             control={form.control}
             name="entryName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Team Name</FormLabel>
+                <FormLabel>{entryNameFieldLabel}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your team name" {...field} />
+                  <Input placeholder={`Enter ${tournament.participantType.toLowerCase()} name`} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -179,8 +177,8 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
             selectedPlayers={selectedPlayers}
             onSelectPlayer={handleSelectPlayer}
             onDeselectPlayer={handleDeselectPlayer}
-            maxSelection={tournament.participantType === 'team' ? 2 : (tournament.tournamentType === 'double_elimination' ? 2 : 1)} // Max 2 for teams or player-based double_elimination
-            label={playerSelectionLabel}
+            maxSelection={maxPlayersToSelect}
+            label={playerSelectionMessage}
             placeholder="Search and select player(s) by nickname..."
         />
         {form.formState.errors.players && (
@@ -191,7 +189,7 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
         <Button 
           type="submit" 
           className="w-full"
-          disabled={currentRegistrationsCount >= tournament.maxTeams /* Basic check, detailed validation in handleSubmit */}
+          disabled={currentRegistrationsCount >= tournament.maxTeams}
         >
           {currentRegistrationsCount >= tournament.maxTeams ? "Registration Full" : "Register"}
         </Button>
@@ -202,4 +200,3 @@ export default function RegistrationForm({ tournament, onRegister, currentRegist
     </Form>
   );
 }
-

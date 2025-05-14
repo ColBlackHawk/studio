@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -91,9 +92,10 @@ export default function ManageTournamentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Format</TableHead>
+                  <TableHead>Participant Type</TableHead>
                   <TableHead><CalendarDays className="inline-block mr-1 h-4 w-4" />Date</TableHead>
-                  <TableHead><Users className="inline-block mr-1 h-4 w-4" />Max Teams</TableHead>
+                  <TableHead><Users className="inline-block mr-1 h-4 w-4" />Max Entries</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -101,7 +103,8 @@ export default function ManageTournamentsPage() {
                 {tournaments.map((tournament) => (
                   <TableRow key={tournament.id}>
                     <TableCell className="font-medium">{tournament.name}</TableCell>
-                    <TableCell>{tournament.tournamentType} ({tournament.participantType})</TableCell>
+                    <TableCell className="capitalize">{tournament.tournamentType.replace("_", " ")}</TableCell>
+                    <TableCell>{tournament.participantType}</TableCell>
                     <TableCell>{new Date(tournament.scheduleDateTime).toLocaleDateString()}</TableCell>
                     <TableCell>{tournament.maxTeams}</TableCell>
                     <TableCell className="text-right space-x-2">

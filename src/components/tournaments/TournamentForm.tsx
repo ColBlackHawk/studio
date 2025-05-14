@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import type { Tournament, TournamentCreation } from "@/lib/types";
+import type { Tournament, TournamentCreation, ParticipantType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -36,7 +36,7 @@ const tournamentFormSchema = z.object({
   owner: z.string().min(2, { message: "Owner name must be at least 2 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   tournamentType: z.enum(["single", "double_elimination"]),
-  participantType: z.enum(["player", "team"]),
+  participantType: z.enum(["Player", "Scotch Doubles", "Team"]),
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
   maxTeams: z.coerce.number().min(2, { message: "Maximum teams/participants must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}),
   matchesInfo: z.string().optional(), 
@@ -63,7 +63,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
         owner: "",
         description: "",
         tournamentType: "single" as "single" | "double_elimination",
-        participantType: "player" as "player" | "team",
+        participantType: "Player" as ParticipantType,
         maxTeams: 8,
         scheduleDateTime: new Date(),
         matchesInfo: "",
@@ -174,8 +174,9 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                     </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                    <SelectItem value="player">Player-based (individuals/pairs)</SelectItem>
-                    <SelectItem value="team">Team-based (named teams)</SelectItem>
+                    <SelectItem value="Player">Player (Individual)</SelectItem>
+                    <SelectItem value="Scotch Doubles">Scotch Doubles (Pairs)</SelectItem>
+                    <SelectItem value="Team">Team (Named Teams)</SelectItem>
                     </SelectContent>
                 </Select>
                 <FormMessage />
@@ -240,7 +241,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             name="maxTeams"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Max Teams/Participants</FormLabel>
+                <FormLabel>Max Entries</FormLabel>
                 <FormControl>
                     <Input type="number" placeholder="e.g., 16" {...field} />
                 </FormControl>

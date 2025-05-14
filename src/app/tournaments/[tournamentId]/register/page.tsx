@@ -2,13 +2,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation"; // Fixed import
+import { useParams, useRouter } from "next/navigation"; 
 import Link from "next/link";
 import type { Tournament, RegisteredEntry, Player, TeamRegistrationPayload } from "@/lib/types";
 import { getTournamentById, getTournamentRegistrations, addTournamentRegistration, removeTournamentRegistration as removeRegistrationService, getPlayers } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Ticket, Users, Info } from "lucide-react";
+import { ArrowLeft, Ticket, Users, Info, User, Users2 } from "lucide-react";
 import RegistrationForm from "@/components/teams/RegistrationForm";
 import RegisteredTeamsList from "@/components/teams/RegisteredTeamsList";
 import { useToast } from "@/hooks/use-toast";
@@ -31,17 +31,16 @@ export default function RegisterForTournamentPage() {
         setTournament(fetchedTournament);
         setRegistrations(getTournamentRegistrations(tournamentId));
       } else {
-        // router.push("/"); // Optionally redirect if tournament not found
         toast({
           title: "Error",
           description: "Tournament not found.",
           variant: "destructive",
         });
       }
-      setAllPlayers(getPlayers()); // Fetch all players for the search input
+      setAllPlayers(getPlayers()); 
       setIsLoading(false);
     }
-  }, [tournamentId, router, toast]);
+  }, [tournamentId, toast]); // router removed from dependencies as it's not used in this callback
 
   useEffect(() => {
     fetchTournamentData();
@@ -60,8 +59,7 @@ export default function RegisterForTournamentPage() {
     
     try {
       addTournamentRegistration(tournament.id, entryName, selectedPlayers);
-      fetchTournamentData(); // Refresh registrations list
-      // Toast is handled within RegistrationForm component
+      fetchTournamentData(); 
     } catch (error: any) {
        toast({
         title: "Registration Failed",
@@ -75,7 +73,7 @@ export default function RegisterForTournamentPage() {
     if (!tournament) return;
     const registrationToRemove = registrations.find(r => r.id === registrationId);
     if (removeRegistrationService(tournament.id, registrationId)) {
-      fetchTournamentData(); // Refresh list
+      fetchTournamentData(); 
       toast({
         title: "Registration Removed",
         description: `"${registrationToRemove?.entryName || 'Entry'}" has been removed.`,
@@ -115,6 +113,20 @@ export default function RegisterForTournamentPage() {
       </div>
     );
   }
+  
+  const getParticipantTypeIcon = (type: Tournament["participantType"]) => {
+    switch (type) {
+      case "Player":
+        return <User className="h-5 w-5 text-primary mr-1" />;
+      case "Scotch Doubles":
+        return <Users2 className="h-5 w-5 text-primary mr-1" />;
+      case "Team":
+        return <Users className="h-5 w-5 text-primary mr-1" />;
+      default:
+        return <Info className="h-5 w-5 text-primary mr-1" />;
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -134,7 +146,7 @@ export default function RegisterForTournamentPage() {
           <CardHeader>
             <CardTitle>Registration Details</CardTitle>
             <CardDescription>
-              Register your {tournament.participantType} for the tournament. 
+              Register your {tournament.participantType.toLowerCase()} for the tournament. 
               Max entries: {tournament.maxTeams}. Currently registered: {registrations.length}.
             </CardDescription>
           </CardHeader>
@@ -152,7 +164,11 @@ export default function RegisterForTournamentPage() {
             <CardTitle>Tournament Info</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p><strong className="text-primary">Type:</strong> {tournament.tournamentType.replace("_", " ")} ({tournament.participantType})</p>
+            <p className="flex items-center"><strong className="text-primary mr-1">Format:</strong> {tournament.tournamentType.replace("_", " ")}</p>
+            <p className="flex items-center">
+                {getParticipantTypeIcon(tournament.participantType)}
+                <strong className="text-primary mr-1">Type:</strong> {tournament.participantType}
+            </p>
             <p><strong className="text-primary">Date:</strong> {new Date(tournament.scheduleDateTime).toLocaleDateString()}</p>
             <p><strong className="text-primary">Description:</strong> {tournament.description}</p>
           </CardContent>
@@ -163,6 +179,7 @@ export default function RegisterForTournamentPage() {
         registrations={registrations}
         onRemoveRegistration={handleRemoveRegistration}
         maxTeams={tournament.maxTeams}
+        participantType={tournament.participantType}
       />
 
     </div>

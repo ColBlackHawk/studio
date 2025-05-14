@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Tournament } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Trophy, Info, Edit, BarChart3, ListChecks, ShieldQuestion, GitFork } from "lucide-react"; // Added GitFork for double elimination
+import { CalendarDays, Users, Trophy, Info, Edit, ListChecks, ShieldQuestion, GitFork, User, Users2 } from "lucide-react";
 import { getTournamentRegistrations } from "@/lib/dataService";
 import { useEffect, useState } from "react";
 
@@ -21,16 +21,30 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     }
   }, [tournament.id]);
 
-  const getTournamentTypeIcon = (type: Tournament["tournamentType"]) => {
+  const getTournamentFormatIcon = (type: Tournament["tournamentType"]) => {
     switch (type) {
       case "single":
-        return <Users className="h-4 w-4 text-muted-foreground" />;
+        return <User className="h-4 w-4 text-muted-foreground" title="Single Elimination" />;
       case "double_elimination":
-        return <GitFork className="h-4 w-4 text-muted-foreground" />; // Using GitFork as a placeholder for double elimination
+        return <GitFork className="h-4 w-4 text-muted-foreground" title="Double Elimination"/>;
       default:
         return <ShieldQuestion className="h-4 w-4 text-muted-foreground" />;
     }
   };
+  
+  const getParticipantTypeLabel = (participantType: Tournament["participantType"]) => {
+    switch (participantType) {
+      case "Player":
+        return "Player (Individual)";
+      case "Scotch Doubles":
+        return "Scotch Doubles (Pairs)";
+      case "Team":
+        return "Team";
+      default:
+        return participantType;
+    }
+  };
+
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
@@ -46,16 +60,20 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       </CardHeader>
       <CardContent className="space-y-3 flex-grow">
         <div className="flex items-center text-sm text-muted-foreground">
-          {getTournamentTypeIcon(tournament.tournamentType)}
-          <span className="ml-2 capitalize">{tournament.tournamentType.replace("_", " ")} ({tournament.participantType})</span>
+          {getTournamentFormatIcon(tournament.tournamentType)}
+          <span className="ml-2 capitalize">{tournament.tournamentType.replace("_", " ")}</span>
+        </div>
+         <div className="flex items-center text-sm text-muted-foreground">
+          <Users className="h-4 w-4" />
+          <span className="ml-2">{getParticipantTypeLabel(tournament.participantType)}</span>
         </div>
         <div className="flex items-center text-sm text-muted-foreground">
           <CalendarDays className="h-4 w-4" />
           <span className="ml-2">{new Date(tournament.scheduleDateTime).toLocaleDateString()} - {new Date(tournament.scheduleDateTime).toLocaleTimeString()}</span>
         </div>
         <div className="flex items-center text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span className="ml-2">{registeredCount} / {tournament.maxTeams} Registered</span>
+          <ListChecks className="h-4 w-4" />
+          <span className="ml-2">{registeredCount} / {tournament.maxTeams} Registered Entries</span>
         </div>
       </CardContent>
       <CardFooter className="grid grid-cols-2 gap-2 pt-4 border-t">

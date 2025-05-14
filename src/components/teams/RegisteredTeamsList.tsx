@@ -1,11 +1,11 @@
 
 "use client";
 
-import type { RegisteredEntry } from "@/lib/types";
+import type { RegisteredEntry, ParticipantType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Users, Shield } from "lucide-react";
+import { Trash2, Users, Shield, User, Users2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +22,10 @@ interface RegisteredTeamsListProps {
   registrations: RegisteredEntry[];
   onRemoveRegistration: (registrationId: string) => void;
   maxTeams: number;
+  participantType: ParticipantType;
 }
 
-export default function RegisteredTeamsList({ registrations, onRemoveRegistration, maxTeams }: RegisteredTeamsListProps) {
+export default function RegisteredTeamsList({ registrations, onRemoveRegistration, maxTeams, participantType }: RegisteredTeamsListProps) {
   if (registrations.length === 0) {
     return (
       <Card className="mt-6">
@@ -39,10 +40,24 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
     );
   }
 
+  const getEntryIcon = () => {
+    switch(participantType) {
+      case "Player": return <User className="inline-block mr-1 h-4 w-4" />;
+      case "Scotch Doubles": return <Users2 className="inline-block mr-1 h-4 w-4" />;
+      case "Team": return <Shield className="inline-block mr-1 h-4 w-4" />;
+      default: return <Shield className="inline-block mr-1 h-4 w-4" />;
+    }
+  };
+  
+  const entryNameLabel = participantType === "Player" ? "Player Nickname" : 
+                         participantType === "Scotch Doubles" ? "Pair Name" : 
+                         "Team Name";
+
+
   return (
     <Card className="mt-8">
       <CardHeader>
-        <CardTitle>Registered Teams/Players ({registrations.length}/{maxTeams})</CardTitle>
+        <CardTitle>Registered Entries ({registrations.length}/{maxTeams})</CardTitle>
         <CardDescription>
           List of all entries registered for this tournament.
         </CardDescription>
@@ -51,8 +66,8 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><Shield className="inline-block mr-1 h-4 w-4" />Entry Name</TableHead>
-              <TableHead><Users className="inline-block mr-1 h-4 w-4" />Player Nickname(s)</TableHead>
+              <TableHead>{getEntryIcon()}{entryNameLabel}</TableHead>
+              <TableHead><Users className="inline-block mr-1 h-4 w-4" />Player(s)</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

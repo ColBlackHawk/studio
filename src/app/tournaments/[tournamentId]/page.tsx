@@ -8,7 +8,7 @@ import type { Tournament, RegisteredEntry, Match } from "@/lib/types";
 import { getTournamentById, getTournamentRegistrations, updateTournament } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, CalendarDays, Users, Trophy, Info, Edit, ListChecks, Ticket, LineChart, RefreshCw, GitFork } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users, Trophy, Info, Edit, ListChecks, Ticket, LineChart, RefreshCw, GitFork, ShieldQuestion, User, Users2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateSingleEliminationBracket, generateDoubleEliminationBracket } from "@/lib/bracketUtils";
 import {
@@ -62,8 +62,8 @@ export default function TournamentDetailPage() {
     } else if (tournament.tournamentType === "double_elimination") {
       newMatches = await generateDoubleEliminationBracket(tournament.id, registrations, tournament.maxTeams);
        toast({
-        title: "Double Elimination Bracket Generated (Simplified)",
-        description: "A simplified DE bracket structure has been created. Full advancement logic is complex.",
+        title: "Double Elimination Bracket Generated",
+        description: "A double elimination bracket structure has been created.",
       });
     } else {
        toast({
@@ -89,6 +89,19 @@ export default function TournamentDetailPage() {
         description: "Failed to generate or save the bracket.",
         variant: "destructive",
       });
+    }
+  };
+
+  const getParticipantTypeIcon = (type: Tournament["participantType"]) => {
+    switch (type) {
+      case "Player":
+        return <User className="h-5 w-5 text-muted-foreground mr-2" />;
+      case "Scotch Doubles":
+        return <Users2 className="h-5 w-5 text-muted-foreground mr-2" />; // Icon for pairs
+      case "Team":
+        return <Users className="h-5 w-5 text-muted-foreground mr-2" />;
+      default:
+        return <ShieldQuestion className="h-5 w-5 text-muted-foreground mr-2" />;
     }
   };
 
@@ -145,7 +158,7 @@ export default function TournamentDetailPage() {
         <CardContent className="grid md:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center">
-              <Users className="h-5 w-5 text-muted-foreground mr-2" />
+               {getParticipantTypeIcon(tournament.participantType)}
               <span className="font-medium">Type:</span>&nbsp;
               <span className="capitalize">{tournament.tournamentType.replace("_", " ")} ({tournament.participantType})</span>
             </div>
@@ -206,7 +219,7 @@ export default function TournamentDetailPage() {
         <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
           <Link href={`/tournaments/${tournamentId}/register`} className="flex flex-col items-center justify-center h-24">
             <Ticket className="h-8 w-8 mb-1" />
-            Team Registration
+            Entry Registration
           </Link>
         </Button>
         <Button asChild size="lg" variant="outline" className="shadow-md hover:shadow-lg transition-shadow" disabled={!tournament.matches || tournament.matches.length === 0}>
