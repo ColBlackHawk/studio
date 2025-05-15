@@ -38,8 +38,21 @@ export default function TournamentSchedulePage() {
   }, [tournamentId, router, toast]);
 
   useEffect(() => {
-    fetchTournamentData();
-  }, [fetchTournamentData]);
+    fetchTournamentData(); // Initial fetch
+
+    // Re-fetch when the window gains focus.
+    // This helps ensure data is fresh if changes were made in another tab or
+    // if the user navigates away and back to this page's tab.
+    const handleFocus = () => {
+      fetchTournamentData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchTournamentData]); // fetchTournamentData is stable due to useCallback
 
   const getEntry = (entryId?: string): RegisteredEntry | undefined => {
     if (!entryId) return undefined;
@@ -47,14 +60,14 @@ export default function TournamentSchedulePage() {
   };
 
   const getMatchIdentifier = (match: Match): string => {
-    const prefix = 
+    const prefix =
       match.bracketType === 'winners' ? 'W' :
       match.bracketType === 'losers' ? 'L' :
       match.bracketType === 'grandFinal' ? 'GF' :
       match.bracketType === 'grandFinalReset' ? 'GFR' : 'M';
     return `${prefix}${match.round}-${match.matchNumberInRound}`;
   };
-  
+
   const getBracketTypeDisplay = (match: Match) => {
     switch(match.bracketType) {
         case 'winners': return <span className="flex items-center"><Shield className="mr-1 h-4 w-4 text-green-500" /> Winners'</span>;
@@ -88,7 +101,7 @@ export default function TournamentSchedulePage() {
 
   const sortedMatches = tournament.matches?.slice().sort((a, b) => {
     const bracketOrder = ['winners', 'losers', 'grandFinal', 'grandFinalReset'];
-    if (bracketOrder.indexOf(a.bracketType) !== bracketOrder.indexOf(b.bracketType)) {
+    if (a.bracketType !== b.bracketType) { // Ensure consistent comparison
         return bracketOrder.indexOf(a.bracketType) - bracketOrder.indexOf(b.bracketType);
     }
     if (a.round !== b.round) return a.round - b.round;
@@ -147,7 +160,7 @@ export default function TournamentSchedulePage() {
                   const team1 = getEntry(match.team1Id);
                   const team2 = getEntry(match.team2Id);
                   const winner = getEntry(match.winnerId);
-                  
+
                   if (match.isBye && match.bracketType !== 'grandFinalReset') { // GFR can be inactive bye
                      const advancingTeam = team1 || team2; // The one not undefined is advancing
                      return (
@@ -156,14 +169,14 @@ export default function TournamentSchedulePage() {
                             {tournament.tournamentType === 'double_elimination' && <TableCell>{getBracketTypeDisplay(match)}</TableCell>}
                             <TableCell>{match.round}</TableCell>
                             <TableCell colSpan={tournament.tournamentType === 'double_elimination' ? 2 : 3} className="text-center italic">
-                                {advancingTeam ? `${advancingTeam.entryName} receives a BYE` : "BYE"}
+                                {advancingTeam ? `${advancingTeam.players.length > 0 ? advancingTeam.players[0].nickname : advancingTeam.entryName} receives a BYE` : "BYE"}
                             </TableCell>
-                            <TableCell>{advancingTeam?.entryName ?? "N/A"}</TableCell>
+                            <TableCell>{advancingTeam ? (advancingTeam.players.length > 0 ? advancingTeam.players[0].nickname : advancingTeam.entryName) : "N/A"}</TableCell>
                             <TableCell>BYE</TableCell>
                         </TableRow>
                      );
                   }
-                  
+
                   // Special case for Grand Final Reset if it's not active
                   if (match.bracketType === 'grandFinalReset' && match.isBye) {
                      return (
@@ -177,16 +190,21 @@ export default function TournamentSchedulePage() {
                         </TableRow>
                      );
                   }
+                  
+                  const displayTeam1Name = team1 ? (team1.players.length > 0 ? team1.players[0].nickname : team1.entryName) : (match.team1Id ? "TBD" : "BYE");
+                  const displayTeam2Name = team2 ? (team2.players.length > 0 ? team2.players[0].nickname : team2.entryName) : (match.team2Id ? "TBD" : "BYE");
+                  const displayWinnerName = winner ? (winner.players.length > 0 ? winner.players[0].nickname : winner.entryName) : (match.winnerId ? "TBD" : "---");
+
 
                   return (
                     <TableRow key={match.id}>
                       <TableCell className="font-medium">{getMatchIdentifier(match)}</TableCell>
                        {tournament.tournamentType === 'double_elimination' && <TableCell>{getBracketTypeDisplay(match)}</TableCell>}
                       <TableCell>{match.round}</TableCell>
-                      <TableCell>{team1?.entryName || (match.team1Id ? "TBD" : "BYE")}</TableCell>
-                      <TableCell>{team2?.entryName || (match.team2Id ? "TBD" : "BYE")}</TableCell>
+                      <TableCell>{displayTeam1Name}</TableCell>
+                      <TableCell>{displayTeam2Name}</TableCell>
                       <TableCell className={winner ? "font-semibold text-accent" : ""}>
-                        {winner?.entryName || (match.winnerId ? "TBD" : "---")}
+                        {displayWinnerName}
                       </TableCell>
                       <TableCell>{match.score || "---"}</TableCell>
                     </TableRow>
