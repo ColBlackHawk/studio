@@ -5,13 +5,13 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { getItem, setItem, removeItem } from '@/lib/localStorage';
 import { LOCALSTORAGE_KEYS } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
-import type { User } from '@/lib/types'; // Import User type
-import { getUserByEmail as fetchUserByEmail } from '@/lib/dataService'; // To get full user details
+import type { User } from '@/lib/types';
+import { getUserByEmail as fetchUserByEmail } from '@/lib/dataService';
 
 interface AuthContextType {
-  currentUserEmail: string | null; // Stores the email of the logged-in user
-  currentUserDetails: User | null; // Stores full details of the logged-in user
-  login: (email: string) => void;
+  currentUserEmail: string | null;
+  currentUserDetails: User | null;
+  login: (user: User) => void; // Login now takes the full user object
   logout: () => void;
   isLoading: boolean;
 }
@@ -31,28 +31,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userDetails = fetchUserByEmail(storedUserEmail);
       if (userDetails) {
         setCurrentUserEmail(userDetails.email);
-        setCurrentUserDetails(userDetails); // User type now includes nickname and accountType
+        setCurrentUserDetails(userDetails);
       } else {
-        // Clear inconsistent stored user if details not found
-        removeItem(LOCALSTORAGE_KEYS.CURRENT_USER);
+        removeItem(LOCALSTORAGE_KEYS.CURRENT_USER); // Clear inconsistent stored user
       }
     }
     setIsLoading(false);
   }, []);
 
-  const login = (email: string) => {
+  const login = (user: User) => { // Expects full user object
     setIsLoading(true);
-    if (email.trim()) {
-      const userDetails = fetchUserByEmail(email.trim());
-      if (userDetails) {
-        setItem<string>(LOCALSTORAGE_KEYS.CURRENT_USER, userDetails.email);
-        setCurrentUserEmail(userDetails.email);
-        setCurrentUserDetails(userDetails); // User type now includes nickname and accountType
-        router.push('/'); 
-      } else {
-        console.error("Login attempt for non-existent user:", email);
-        // This case should ideally be handled by login/signup page logic
-      }
+    if (user && user.email) {
+        setItem<string>(LOCALSTORAGE_KEYS.CURRENT_USER, user.email);
+        setCurrentUserEmail(user.email);
+        setCurrentUserDetails(user);
+        router.push('/');
+    } else {
+        console.error("Login attempt with invalid user object:", user);
     }
     setIsLoading(false);
   };
@@ -61,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     removeItem(LOCALSTORAGE_KEYS.CURRENT_USER);
     setCurrentUserEmail(null);
     setCurrentUserDetails(null);
-    router.push('/login'); 
+    router.push('/login');
   };
 
   return (
@@ -78,4 +73,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

@@ -15,11 +15,11 @@ export const getUserByEmail = (email: string): User | undefined => {
 };
 
 export const createUser = (userData: UserCreation): User | null => {
-  if (!userData.email || !userData.nickname) {
-    console.error("Email and Nickname are required to create a user.");
+  if (!userData.email || !userData.nickname || !userData.password) {
+    console.error("Email, Nickname, and Password are required to create a user.");
     return null;
   }
-  
+
   const users = getUsers();
   const isAdminEmail = userData.email.toLowerCase() === 'admin@tournamentbracket.com';
   const existingUserIndex = users.findIndex(u => u.email.toLowerCase() === userData.email.toLowerCase());
@@ -27,30 +27,45 @@ export const createUser = (userData: UserCreation): User | null => {
   let finalUserData: User = {
     email: userData.email,
     nickname: userData.nickname,
+    password: userData.password, // Storing plain text password - INSECURE
     firstName: userData.firstName,
     lastName: userData.lastName,
-    accountType: isAdminEmail ? 'Admin' : userData.accountType, // Force Admin for specific email
+    accountType: isAdminEmail ? 'Admin' : userData.accountType,
   };
-  
-  if (isAdminEmail && userData.nickname !== 'Admin') {
-      finalUserData.nickname = 'Admin'; // Force nickname for admin email
+
+  if (isAdminEmail) {
+    finalUserData.nickname = 'Admin'; // Force nickname for admin email
+    if (finalUserData.password !== 'password'){ // Ensure admin default password if explicitly created
+        // In a real scenario, admin password should be set securely, not hardcoded or easily changed here
+    }
   }
 
 
   if (existingUserIndex !== -1) {
-    // If admin email signs up again or is being explicitly created, update it.
-    // For other users, prevent overriding if they exist, unless an explicit updateUser is called.
     if (isAdminEmail) {
-        users[existingUserIndex] = finalUserData;
+        users[existingUserIndex] = { ...users[existingUserIndex], ...finalUserData }; // Ensure admin details are updated
     } else {
         console.error("User with this email already exists. Use updateUser if modification is intended.");
-        return users[existingUserIndex]; // Return existing user instead of erroring out for signup flow
+        return users[existingUserIndex];
     }
   } else {
     users.push(finalUserData);
   }
-  
+
   setItem(LOCALSTORAGE_KEYS.USERS, users);
+  // Initialize admin user if not present
+  const adminUser = users.find(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
+  if (!adminUser) {
+    users.push({
+      email: 'admin@tournamentbracket.com',
+      nickname: 'Admin',
+      password: 'password', // Default admin password - INSECURE
+      accountType: 'Admin',
+    });
+    setItem(LOCALSTORAGE_KEYS.USERS, users);
+  }
+
+
   return finalUserData;
 };
 
@@ -59,7 +74,10 @@ export const updateUser = (email: string, updates: Partial<Omit<User, 'email'>>)
   const index = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
   if (index !== -1) {
     // Prevent changing email; email is the identifier.
-    const { email: newEmail, ...restOfUpdates } = updates as Partial<User>; 
+    const { email: newEmail, ...restOfUpdates } = updates as Partial<User>;
+    // If password is being updated and is empty, retain old password. Otherwise, update.
+    // For this prototype, if `restOfUpdates.password` is provided (even if empty string for "remove"), it updates.
+    // A more robust system would handle empty password updates carefully (e.g., require "current password").
     users[index] = { ...users[index], ...restOfUpdates };
     setItem(LOCALSTORAGE_KEYS.USERS, users);
     return users[index];
@@ -96,7 +114,7 @@ export const createTournament = (tournamentData: TournamentCreation): Tournament
   const newTournament: Tournament = {
     ...restOfData, // ownerId here will be an email
     id: crypto.randomUUID(),
-    matches: [], 
+    matches: [],
   };
   tournaments.push(newTournament);
   setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
@@ -239,7 +257,52 @@ export const removeAllTournamentRegistrations = (tournamentId: string): boolean 
     if (tournament) {
         updateTournament(tournamentId, { ...tournament, matches: [] });
     }
-    return true; 
+    return true;
   }
-  return false; 
+  return false;
 };
+
+// Ensure default admin exists on app load if no users are present at all
+(() => {
+  if (typeof window !== 'undefined') { // Only run on client
+    const users = getUsers();
+    if (users.length === 0) {
+      setItem(LOCALSTORAGE_KEYS.USERS, [{
+        email: 'admin@tournamentbracket.com',
+        nickname: 'Admin',
+        password: 'password', // Default admin password - INSECURE
+        accountType: 'Admin',
+      }]);
+    } else {
+      const adminUser = users.find(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
+      if (!adminUser) {
+        users.push({
+          email: 'admin@tournamentbracket.com',
+          nickname: 'Admin',
+          password: 'password', // Default admin password - INSECURE
+          accountType: 'Admin',
+        });
+        setItem(LOCALSTORAGE_KEYS.USERS, users);
+      } else {
+        // Ensure existing admin user has a password if it's missing (e.g. from older state)
+        // And ensure their account type is Admin and nickname is Admin
+        let adminUpdated = false;
+        if (!adminUser.password) {
+          adminUser.password = 'password';
+          adminUpdated = true;
+        }
+        if (adminUser.accountType !== 'Admin') {
+            adminUser.accountType = 'Admin';
+            adminUpdated = true;
+        }
+        if (adminUser.nickname !== 'Admin') {
+            adminUser.nickname = 'Admin';
+            adminUpdated = true;
+        }
+        if (adminUpdated) {
+            setItem(LOCALSTORAGE_KEYS.USERS, users);
+        }
+      }
+    }
+  }
+})();

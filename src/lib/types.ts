@@ -1,10 +1,10 @@
 
 export type TournamentType = "single" | "double_elimination";
-export type ParticipantType = "Player" | "Scotch Doubles" | "Team"; 
+export type ParticipantType = "Player" | "Scotch Doubles" | "Team";
 
 export interface Player {
   id: string;
-  nickname: string; 
+  nickname: string;
   firstName?: string;
   lastName?: string;
   apaNumber?: string;
@@ -25,18 +25,18 @@ export interface RegisteredEntry {
 export interface Match {
   id: string; // Unique ID for this match
   tournamentId: string;
-  round: number; 
-  matchNumberInRound: number; 
+  round: number;
+  matchNumberInRound: number;
   bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset';
-  team1Id?: string; 
-  team1FeederMatchId?: string; 
+  team1Id?: string;
+  team1FeederMatchId?: string;
   team1FeederType?: 'winner' | 'loser';
-  team2Id?: string; 
-  team2FeederMatchId?: string; 
+  team2Id?: string;
+  team2FeederMatchId?: string;
   team2FeederType?: 'winner' | 'loser';
-  winnerId?: string; 
-  score?: string; 
-  isBye?: boolean; 
+  winnerId?: string;
+  score?: string;
+  isBye?: boolean;
 }
 
 export type AccountType = 'Admin' | 'Owner' | 'Player';
@@ -44,6 +44,7 @@ export type AccountType = 'Admin' | 'Owner' | 'Player';
 export interface User {
   email: string; // Unique identifier for app users
   nickname: string; // Required display name / handle
+  password?: string; // Insecure: Plain text password for prototype
   firstName?: string;
   lastName?: string;
   accountType: AccountType; // Role of the user
@@ -58,20 +59,19 @@ export interface Tournament {
   participantType: ParticipantType;
   scheduleDateTime: string; // ISO string for date and time
   maxTeams: number; // e.g., 8, 16, 32
-  matches?: Match[]; 
+  matches?: Match[];
 }
 
-export type TournamentCreation = Omit<Tournament, "id" | "matches"> & { 
-  matchesInfo?: string; 
+export type TournamentCreation = Omit<Tournament, "id" | "matches"> & {
+  matchesInfo?: string;
 };
 export type PlayerCreation = Omit<Player, "id">;
 
-// For creating a new user, email must be provided.
-export type UserCreation = Required<Pick<User, 'email' | 'nickname' | 'accountType'>> & Partial<Omit<User, 'email' | 'nickname' | 'accountType'>>;
+// For creating a new user, email, nickname, password, and accountType must be provided.
+export type UserCreation = Required<Pick<User, 'email' | 'nickname' | 'password' | 'accountType'>> & Partial<Omit<User, 'email' | 'nickname' | 'password' | 'accountType'>>;
 
 
 export interface TeamRegistrationPayload {
-  entryName: string; 
-  playerIds: string[]; 
+  entryName: string;
+  playerIds: string[];
 }
-

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const accountTypes: AccountType[] = ['Admin', 'Owner', 'Player'];
 
-const userFormSchema = z.object({
+const baseUserFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   nickname: z.string().min(2, { message: "Nickname must be at least 2 characters." }),
   firstName: z.string().optional(),
@@ -34,7 +35,29 @@ const userFormSchema = z.object({
   accountType: z.enum(accountTypes, { required_error: "Account type is required." }),
 });
 
-type UserFormValues = z.infer<typeof userFormSchema>;
+// Schema for creating a user (password required)
+const createUserFormSchema = baseUserFormSchema.extend({
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+// Schema for editing a user (password optional)
+const editUserFormSchema = baseUserFormSchema.extend({
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }).optional().or(z.literal('')),
+  confirmPassword: z.string().optional().or(z.literal('')),
+}).refine((data) => {
+  if (data.password && data.password !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "New passwords don't match",
+  path: ["confirmPassword"],
+});
+
 
 interface UserFormProps {
   user?: User;
@@ -44,27 +67,53 @@ interface UserFormProps {
 
 export default function UserForm({ user, onSubmit, isEditing = false }: UserFormProps) {
   const { toast } = useToast();
-  const defaultValues = user
-    ? { 
+
+  const formSchema = isEditing ? editUserFormSchema : createUserFormSchema;
+  type UserFormValues = z.infer<typeof formSchema>;
+
+
+  const defaultValues: Partial<UserFormValues> = user
+    ? {
         ...user,
         firstName: user.firstName ?? "",
         lastName: user.lastName ?? "",
+        password: "", // Don't prefill password for editing
+        confirmPassword: "",
       }
-    : { 
+    : {
         email: "",
-        nickname: "", 
+        nickname: "",
         firstName: "",
         lastName: "",
         accountType: "Player" as AccountType,
+        password: "",
+        confirmPassword: "",
       };
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(formSchema),
     defaultValues,
   });
 
   const handleSubmit = (data: UserFormValues) => {
-    onSubmit(data as UserCreation | User); // Type assertion based on isEditing
+    const submissionData: Partial<UserCreation | User> = { // Use Partial to build up
+      email: data.email,
+      nickname: data.nickname,
+      firstName: data.firstName || undefined,
+      lastName: data.lastName || undefined,
+      accountType: data.accountType,
+    };
+
+    if (data.password) { // Only include password if provided (and valid for schema)
+      submissionData.password = data.password;
+    } else if (!isEditing) {
+      // This case should be caught by createUserFormSchema making password required
+      toast({ title: "Error", description: "Password is required for new users.", variant: "destructive" });
+      return;
+    }
+    // If editing and password fields are blank, the existing password remains unchanged (not sent in `updates`)
+
+    onSubmit(submissionData as UserCreation | User);
     toast({
       title: `User ${isEditing ? 'updated' : 'created'}`,
       description: `${data.nickname} (${data.email}) has been successfully ${isEditing ? 'saved' : 'added'}.`,
@@ -128,6 +177,37 @@ export default function UserForm({ user, onSubmit, isEditing = false }: UserForm
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{isEditing ? "New Password (Optional)" : "Password (Required)"}</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder={isEditing ? "Leave blank to keep current" : "Min. 6 characters"} {...field} />
+              </FormControl>
+              <FormDescription className="text-xs text-destructive">
+                Warning: Passwords stored in plain text for this prototype (insecure).
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{isEditing ? "Confirm New Password" : "Confirm Password (Required)"}</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="Re-enter password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="accountType"
