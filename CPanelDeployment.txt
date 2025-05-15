@@ -23,7 +23,9 @@ Configure in cPanel:
 Create Application: In the "Setup Node.js App" interface, create a new application.
 Application Root: Set this to the directory where you uploaded your project files.
 Application URL: Choose the domain/subdomain for your app.
-Application Startup File: This is usually node_modules/.bin/next or you might need a custom startup script (e.g., server.js) if you're running next start. A common approach is to use next start via your package.json scripts. For example, if your package.json has "start": "next start -p $PORT", you might point to that. The cPanel interface will often guide you or default to app.js or server.js. You might need to create a simple server.js if one isn't generated:
+Application Startup File: This is usually node_modules/.bin/next 
+  or you might need a custom startup script (e.g., server.js) if you're running next start. 
+  A common approach is to use next start via your package.json scripts. For example, if your package.json has "start": "next start -p $PORT", you might point to that. The cPanel interface will often guide you or default to app.js or server.js. You might need to create a simple server.js if one isn't generated:
 // server.js (simple example, Next.js handles most of this with `next start`)
 const { createServer } = require('http');
 const { parse } = require('url');
