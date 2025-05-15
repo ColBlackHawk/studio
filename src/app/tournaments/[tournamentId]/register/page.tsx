@@ -4,48 +4,123 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Tournament, RegisteredEntry, Player, TeamRegistrationPayload } from "@/lib/types";
-import { getTournamentById, getTournamentRegistrations, addTournamentRegistration, removeTournamentRegistration as removeRegistrationService, getPlayers, removeAllTournamentRegistrations } from "@/lib/dataService";
+import type { Tournament, RegisteredEntry, Player, TeamRegistrationPayload, PlayerCreation } from "@/lib/types";
+import { 
+  getTournamentById, 
+  getTournamentRegistrations, 
+  addTournamentRegistration, 
+  removeTournamentRegistration as removeRegistrationService, 
+  getPlayers, 
+  removeAllTournamentRegistrations,
+  getPlayerByEmail, // Added
+  createPlayer // Added
+} from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Ticket, Users, Info, User, Users2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Ticket, Users, Info, User, Users2, UserPlus, LogOutIcon } from "lucide-react";
 import RegistrationForm from "@/components/teams/RegistrationForm";
 import RegisteredTeamsList from "@/components/teams/RegisteredTeamsList";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext"; // Added
 
 export default function RegisterForTournamentPage() {
   const router = useRouter();
   const params = useParams();
   const tournamentId = params.tournamentId as string;
   const { toast } = useToast();
+  const { currentUserDetails } = useAuth(); // Get current user
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [registrations, setRegistrations] = useState<RegisteredEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
+  const [isCurrentUserRegistered, setIsCurrentUserRegistered] = useState(false);
+  const [currentUserRegistrationId, setCurrentUserRegistrationId] = useState<string | null>(null);
+
+
   const fetchTournamentData = useCallback(() => {
     if (tournamentId) {
+      setIsLoading(true);
       const fetchedTournament = getTournamentById(tournamentId);
       if (fetchedTournament) {
         setTournament(fetchedTournament);
-        setRegistrations(getTournamentRegistrations(tournamentId));
+        const currentRegistrations = getTournamentRegistrations(tournamentId);
+        setRegistrations(currentRegistrations);
+
+        // Check if current user is registered (only if it's a 'Player' type tournament)
+        if (currentUserDetails && fetchedTournament.participantType === 'Player') {
+          const userReg = currentRegistrations.find(reg => 
+            reg.players.some(p => p.email?.toLowerCase() === currentUserDetails.email.toLowerCase())
+          );
+          setIsCurrentUserRegistered(!!userReg);
+          setCurrentUserRegistrationId(userReg?.id || null);
+        } else {
+          setIsCurrentUserRegistered(false);
+          setCurrentUserRegistrationId(null);
+        }
+
       } else {
         toast({
           title: "Error",
           description: "Tournament not found.",
           variant: "destructive",
         });
-        // router.push("/"); // Consider if this is desired behavior
+        // router.push("/"); 
       }
-      setAllPlayers(getPlayers()); // Ensure allPlayers is fetched
+      setAllPlayers(getPlayers()); 
       setIsLoading(false);
     }
-  }, [tournamentId, toast]);
+  }, [tournamentId, toast, currentUserDetails]);
 
   useEffect(() => {
     fetchTournamentData();
   }, [fetchTournamentData]);
+
+  const handleRegisterCurrentUser = () => {
+    if (!tournament || !currentUserDetails) return;
+
+    if (registrations.length >= tournament.maxTeams) {
+      toast({ title: "Registration Full", description: "This tournament has reached its maximum number of entries.", variant: "destructive" });
+      return;
+    }
+
+    let playerToRegister = getPlayerByEmail(currentUserDetails.email);
+
+    if (!playerToRegister) {
+      const newPlayerData: PlayerCreation = {
+        nickname: currentUserDetails.nickname,
+        email: currentUserDetails.email,
+        firstName: currentUserDetails.firstName,
+        lastName: currentUserDetails.lastName,
+      };
+      playerToRegister = createPlayer(newPlayerData);
+    }
+
+    if (playerToRegister) {
+      try {
+        addTournamentRegistration(tournament.id, playerToRegister.nickname, [playerToRegister]);
+        toast({ title: "Registered!", description: `You have been registered for ${tournament.name}.` });
+        fetchTournamentData(); // Re-fetch to update UI
+      } catch (error: any) {
+        toast({ title: "Registration Failed", description: error.message || "Could not register you for the tournament.", variant: "destructive" });
+      }
+    } else {
+       toast({ title: "Error", description: "Could not find or create your player profile.", variant: "destructive" });
+    }
+  };
+
+  const handleUnregisterCurrentUser = () => {
+    if (!tournament || !currentUserDetails || !currentUserRegistrationId) return;
+
+    if (removeRegistrationService(tournament.id, currentUserRegistrationId)) {
+      toast({ title: "Unregistered", description: `You have been unregistered from ${tournament.name}.` });
+      fetchTournamentData(); // Re-fetch to update UI
+    } else {
+      toast({ title: "Error", description: "Failed to unregister.", variant: "destructive" });
+    }
+  };
 
   const handleRegisterTeam = (payload: TeamRegistrationPayload) => {
     if (!tournament) return;
@@ -57,8 +132,7 @@ export default function RegisterForTournamentPage() {
         toast({ title: "Error", description: "One or more selected players not found.", variant: "destructive" });
         return;
     }
-
-    // Check for duplicate players within this tournament
+    
     const existingPlayerIdsInTournament = new Set<string>();
     registrations.forEach(reg => {
       reg.players.forEach(p => existingPlayerIdsInTournament.add(p.id));
@@ -162,6 +236,7 @@ export default function RegisterForTournamentPage() {
     }
   };
 
+  const showSimplifiedRegistration = currentUserDetails && tournament.participantType === 'Player';
 
   return (
     <div className="space-y-8">
@@ -176,12 +251,44 @@ export default function RegisterForTournamentPage() {
         </h1>
       </div>
 
+      {showSimplifiedRegistration && (
+        <Card className="shadow-md bg-primary/5">
+          <CardHeader>
+            <CardTitle>Quick Registration</CardTitle>
+            <CardDescription>Register or unregister yourself for this tournament.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            {isCurrentUserRegistered ? (
+              <Button onClick={handleUnregisterCurrentUser} variant="destructive" size="lg">
+                <LogOutIcon className="mr-2 h-5 w-5" /> Unregister {currentUserDetails.nickname}
+              </Button>
+            ) : (
+              <Button onClick={handleRegisterCurrentUser} variant="default" size="lg" disabled={registrations.length >= tournament.maxTeams}>
+                <UserPlus className="mr-2 h-5 w-5" /> Register as {currentUserDetails.nickname}
+              </Button>
+            )}
+          </CardContent>
+           {registrations.length >= tournament.maxTeams && !isCurrentUserRegistered && (
+             <CardContent className="text-center text-destructive text-sm">
+               This tournament has reached its maximum capacity of {tournament.maxTeams} entries.
+             </CardContent>
+           )}
+        </Card>
+      )}
+      
+      {(showSimplifiedRegistration) && <Separator className="my-8" />}
+
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         <Card className="md:col-span-2 shadow-lg">
           <CardHeader>
-            <CardTitle>Registration Details</CardTitle>
+             <CardTitle>{showSimplifiedRegistration ? "Manual / Other Registration Types" : "Registration Details"}</CardTitle>
             <CardDescription>
-              Register your {tournament.participantType.toLowerCase()} for the tournament.
+              {showSimplifiedRegistration 
+                ? `Register another player, or entries for Team/Scotch Doubles tournaments.`
+                : `Register your ${tournament.participantType.toLowerCase()} for the tournament.`
+              }
+              <br />
               Max entries: {tournament.maxTeams}. Currently registered: {registrations.length}.
             </CardDescription>
           </CardHeader>

@@ -142,6 +142,12 @@ export const getPlayerById = (id: string): Player | undefined => {
   return players.find(p => p.id === id);
 };
 
+export const getPlayerByEmail = (email: string): Player | undefined => {
+  if (!email) return undefined;
+  const players = getPlayers();
+  return players.find(p => p.email?.toLowerCase() === email.toLowerCase());
+}
+
 export const createPlayer = (playerData: PlayerCreation): Player => {
   const players = getPlayers();
   const newPlayer: Player = { ...playerData, id: crypto.randomUUID() };
