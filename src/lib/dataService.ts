@@ -1,5 +1,5 @@
 
-import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, User, AccountType } from "./types";
+import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, User, AccountType, UserCreation } from "./types";
 import { getItem, setItem, removeItem } from "./localStorage";
 import { LOCALSTORAGE_KEYS } from "./constants";
 
@@ -9,60 +9,74 @@ export const getUsers = (): User[] => {
 };
 
 export const getUserByEmail = (email: string): User | undefined => {
+  if (!email) return undefined;
   const users = getUsers();
   return users.find(u => u.email.toLowerCase() === email.toLowerCase());
 };
 
-export const createUser = (userData: {
-  email: string;
-  nickname: string;
-  firstName?: string;
-  lastName?: string;
-  accountType: AccountType; // This will be overridden for the admin user
-}): User | null => {
+export const createUser = (userData: UserCreation): User | null => {
   if (!userData.email || !userData.nickname) {
     console.error("Email and Nickname are required to create a user.");
     return null;
   }
   
-  const isAdminEmail = userData.email.toLowerCase() === 'admin@tournamentbracket.com';
-
-  if (!isAdminEmail && getUserByEmail(userData.email)) {
-    console.error("User with this email already exists.");
-    return null;
-  }
-  
   const users = getUsers();
-  let finalUserData: User;
+  const isAdminEmail = userData.email.toLowerCase() === 'admin@tournamentbracket.com';
+  const existingUserIndex = users.findIndex(u => u.email.toLowerCase() === userData.email.toLowerCase());
 
-  if (isAdminEmail) {
-    // For the admin email, force specific details and overwrite if already exists
-    const existingAdminIndex = users.findIndex(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
-    finalUserData = {
-      email: 'admin@tournamentbracket.com',
-      nickname: 'Admin', // Force nickname
-      firstName: userData.firstName || 'Admin',
-      lastName: userData.lastName || 'User',
-      accountType: 'Admin', // Force account type
-    };
-    if (existingAdminIndex !== -1) {
-      users[existingAdminIndex] = finalUserData; // Update if exists
+  let finalUserData: User = {
+    email: userData.email,
+    nickname: userData.nickname,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    accountType: isAdminEmail ? 'Admin' : userData.accountType, // Force Admin for specific email
+  };
+  
+  if (isAdminEmail && userData.nickname !== 'Admin') {
+      finalUserData.nickname = 'Admin'; // Force nickname for admin email
+  }
+
+
+  if (existingUserIndex !== -1) {
+    // If admin email signs up again or is being explicitly created, update it.
+    // For other users, prevent overriding if they exist, unless an explicit updateUser is called.
+    if (isAdminEmail) {
+        users[existingUserIndex] = finalUserData;
     } else {
-      users.push(finalUserData);
+        console.error("User with this email already exists. Use updateUser if modification is intended.");
+        return users[existingUserIndex]; // Return existing user instead of erroring out for signup flow
     }
   } else {
-    finalUserData = {
-      email: userData.email,
-      nickname: userData.nickname,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      accountType: userData.accountType, // Use provided for others
-    };
     users.push(finalUserData);
   }
   
   setItem(LOCALSTORAGE_KEYS.USERS, users);
   return finalUserData;
+};
+
+export const updateUser = (email: string, updates: Partial<Omit<User, 'email'>>): User | undefined => {
+  let users = getUsers();
+  const index = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+  if (index !== -1) {
+    // Prevent changing email; email is the identifier.
+    const { email: newEmail, ...restOfUpdates } = updates as Partial<User>; 
+    users[index] = { ...users[index], ...restOfUpdates };
+    setItem(LOCALSTORAGE_KEYS.USERS, users);
+    return users[index];
+  }
+  console.warn(`User with email ${email} not found for update.`);
+  return undefined;
+};
+
+export const deleteUser = (email: string): boolean => {
+  let users = getUsers();
+  const initialLength = users.length;
+  users = users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+  if (users.length < initialLength) {
+    setItem(LOCALSTORAGE_KEYS.USERS, users);
+    return true;
+  }
+  return false;
 };
 
 
@@ -174,6 +188,19 @@ export const addTournamentRegistration = (tournamentId: string, entryName: strin
   if (registrations.length >= tournament.maxTeams) {
     throw new Error("Maximum number of teams registered for this tournament.");
   }
+
+  // Check for duplicate players within this tournament
+    const existingPlayerIdsInTournament = new Set<string>();
+    registrations.forEach(reg => {
+      reg.players.forEach(p => existingPlayerIdsInTournament.add(p.id));
+    });
+
+    const duplicates = players.filter(p => existingPlayerIdsInTournament.has(p.id));
+    if (duplicates.length > 0) {
+      const duplicateNicknames = duplicates.map(d => d.nickname).join(", ");
+      throw new Error(`Player(s) "${duplicateNicknames}" are already registered in this tournament.`);
+    }
+
 
   const newRegistration: RegisteredEntry = {
     id: crypto.randomUUID(),

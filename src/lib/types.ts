@@ -66,6 +66,10 @@ export type TournamentCreation = Omit<Tournament, "id" | "matches"> & {
 };
 export type PlayerCreation = Omit<Player, "id">;
 
+// For creating a new user, email must be provided.
+export type UserCreation = Required<Pick<User, 'email' | 'nickname' | 'accountType'>> & Partial<Omit<User, 'email' | 'nickname' | 'accountType'>>;
+
+
 export interface TeamRegistrationPayload {
   entryName: string; 
   playerIds: string[]; 
