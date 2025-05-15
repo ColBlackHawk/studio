@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { Menu, LogIn, LogOut } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { APP_NAME } from "@/lib/constants";
 import SidebarNav from "./SidebarNav"; 
 import { useAuth } from "@/contexts/AuthContext";
@@ -125,8 +125,9 @@ export default function Header() {
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0">
-                <div className="p-4 border-b">
+              <SheetContent side="left" className="p-0 flex flex-col">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="sr-only">{APP_NAME} Navigation Menu</SheetTitle>
                   <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary">
                       <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
@@ -138,7 +139,7 @@ export default function Header() {
                     </svg>
                     <span className="font-bold text-xl text-primary">{APP_NAME}</span>
                   </Link>
-                </div>
+                </SheetHeader>
                 <SidebarNav isMobile={true} />
               </SheetContent>
             </Sheet>
