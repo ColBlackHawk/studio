@@ -25,12 +25,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
+    setIsLoading(true);
     const storedUserEmail = getItem<string>(LOCALSTORAGE_KEYS.CURRENT_USER);
     if (storedUserEmail) {
       const userDetails = fetchUserByEmail(storedUserEmail);
       if (userDetails) {
         setCurrentUserEmail(userDetails.email);
-        setCurrentUserDetails(userDetails);
+        setCurrentUserDetails(userDetails); // User type now includes nickname and accountType
       } else {
         // Clear inconsistent stored user if details not found
         removeItem(LOCALSTORAGE_KEYS.CURRENT_USER);
@@ -40,20 +41,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (email: string) => {
+    setIsLoading(true);
     if (email.trim()) {
       const userDetails = fetchUserByEmail(email.trim());
       if (userDetails) {
         setItem<string>(LOCALSTORAGE_KEYS.CURRENT_USER, userDetails.email);
         setCurrentUserEmail(userDetails.email);
-        setCurrentUserDetails(userDetails);
+        setCurrentUserDetails(userDetails); // User type now includes nickname and accountType
         router.push('/'); 
       } else {
-        // This case should ideally be handled by login/signup page logic
-        // (i.e., user shouldn't be able to "login" if their record doesn't exist)
         console.error("Login attempt for non-existent user:", email);
-        // Optionally, redirect to signup or show an error
+        // This case should ideally be handled by login/signup page logic
       }
     }
+    setIsLoading(false);
   };
 
   const logout = () => {
@@ -77,3 +78,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+

@@ -1,5 +1,5 @@
 
-import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, User } from "./types";
+import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, User, AccountType } from "./types";
 import { getItem, setItem, removeItem } from "./localStorage";
 import { LOCALSTORAGE_KEYS } from "./constants";
 
@@ -13,20 +13,28 @@ export const getUserByEmail = (email: string): User | undefined => {
   return users.find(u => u.email.toLowerCase() === email.toLowerCase());
 };
 
-export const createUser = (userData: Pick<User, 'email' | 'firstName' | 'lastName'>): User | null => {
-  if (!userData.email) {
-    console.error("Email is required to create a user.");
-    return null; // Or throw error
+export const createUser = (userData: {
+  email: string;
+  nickname: string;
+  firstName?: string;
+  lastName?: string;
+  accountType: AccountType;
+}): User | null => {
+  if (!userData.email || !userData.nickname) {
+    console.error("Email and Nickname are required to create a user.");
+    return null;
   }
   if (getUserByEmail(userData.email)) {
     console.error("User with this email already exists.");
-    return null; // Or throw error
+    return null;
   }
   const users = getUsers();
   const newUser: User = {
     email: userData.email,
+    nickname: userData.nickname,
     firstName: userData.firstName,
     lastName: userData.lastName,
+    accountType: userData.accountType,
   };
   users.push(newUser);
   setItem(LOCALSTORAGE_KEYS.USERS, users);
@@ -173,3 +181,4 @@ export const removeAllTournamentRegistrations = (tournamentId: string): boolean 
   }
   return false; 
 };
+

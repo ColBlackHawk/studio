@@ -10,12 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { APP_NAME } from '@/lib/constants';
-import { UserPlus, Mail, User as UserIcon } from 'lucide-react';
+import { UserPlus, Mail, User as UserIcon, Smile } from 'lucide-react'; // Added Smile for Nickname
 import { createUser, getUserByEmail } from '@/lib/dataService';
 import { useToast } from '@/hooks/use-toast';
+import type { AccountType } from '@/lib/types';
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
+  const [nickname, setNickname] = useState(''); // New state for nickname
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const { login } = useAuth();
@@ -33,6 +35,7 @@ export default function SignUpPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedNickname = nickname.trim();
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
 
@@ -44,17 +47,28 @@ export default function SignUpPage() {
       toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
+    if (!trimmedNickname) {
+      toast({ title: "Error", description: "Name (Nickname) cannot be empty.", variant: "destructive" });
+      return;
+    }
 
     if (getUserByEmail(trimmedEmail)) {
-      toast({ title: "Account Exists", description: "An account with this email already exists. Please log in.", variant: "destructive" });
+      toast({ title: "Account Exists", description: "An account with this email already exists. Please log in.", variant: "default" });
       router.push('/login');
       return;
     }
 
-    const newUser = createUser({ email: trimmedEmail, firstName: trimmedFirstName || undefined, lastName: trimmedLastName || undefined });
+    const newUser = createUser({ 
+      email: trimmedEmail, 
+      nickname: trimmedNickname,
+      firstName: trimmedFirstName || undefined, 
+      lastName: trimmedLastName || undefined,
+      accountType: 'Player' as AccountType // Default to 'Player'
+    });
+
     if (newUser) {
       login(newUser.email);
-      toast({ title: "Account Created!", description: "Welcome to TournamentBracket!" });
+      toast({ title: "Account Created!", description: `Welcome to ${APP_NAME}, ${newUser.nickname}!` });
     } else {
       toast({ title: "Sign Up Failed", description: "Could not create your account. Please try again.", variant: "destructive" });
     }
@@ -79,6 +93,21 @@ export default function SignUpPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nickname">Name (Nickname - Required)</Label>
+              <div className="relative">
+                <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="nickname"
+                  type="text"
+                  placeholder="Your display name or handle"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  required
+                  className="pl-10 text-base"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address (Required)</Label>
                <div className="relative">
@@ -143,3 +172,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+

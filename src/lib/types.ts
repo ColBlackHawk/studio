@@ -39,10 +39,14 @@ export interface Match {
   isBye?: boolean; 
 }
 
+export type AccountType = 'Admin' | 'Owner' | 'Player';
+
 export interface User {
   email: string; // Unique identifier for app users
+  nickname: string; // Required display name / handle
   firstName?: string;
   lastName?: string;
+  accountType: AccountType; // Role of the user
 }
 
 export interface Tournament {
@@ -66,3 +70,4 @@ export interface TeamRegistrationPayload {
   entryName: string; 
   playerIds: string[]; 
 }
+

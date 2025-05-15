@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, LogIn, LogOut } from "lucide-react"; // Removed UserCircle, will use Avatar
+import { Menu, LogIn, LogOut } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { APP_NAME } from "@/lib/constants";
@@ -23,6 +23,9 @@ export default function Header() {
   const { currentUserEmail, currentUserDetails, logout, isLoading } = useAuth();
 
   const getInitials = () => {
+    if (currentUserDetails?.nickname) {
+      return currentUserDetails.nickname.substring(0, 2).toUpperCase();
+    }
     if (currentUserDetails) {
       const first = currentUserDetails.firstName?.[0] || '';
       const last = currentUserDetails.lastName?.[0] || '';
@@ -35,6 +38,22 @@ export default function Header() {
     }
     return "?";
   };
+
+  const getDisplayName = () => {
+    if (currentUserDetails?.nickname) {
+      return currentUserDetails.nickname;
+    }
+    if (currentUserDetails?.firstName && currentUserDetails?.lastName) {
+      return `${currentUserDetails.firstName} ${currentUserDetails.lastName}`;
+    }
+    if (currentUserDetails?.firstName) {
+      return currentUserDetails.firstName;
+    }
+    if (currentUserDetails?.lastName) {
+      return currentUserDetails.lastName;
+    }
+    return currentUserEmail || "User";
+  }
 
 
   return (
@@ -60,7 +79,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    {/* Future: <AvatarImage src={currentUserDetails?.avatarUrl} alt={currentUserDetails?.firstName || currentUserEmail} /> */}
+                    {/* Future: <AvatarImage src={currentUserDetails?.avatarUrl} alt={getDisplayName()} /> */}
                     <AvatarFallback className="bg-primary text-primary-foreground">
                       {getInitials()}
                     </AvatarFallback>
@@ -71,13 +90,16 @@ export default function Header() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {currentUserDetails?.firstName && currentUserDetails?.lastName 
-                        ? `${currentUserDetails.firstName} ${currentUserDetails.lastName}`
-                        : currentUserDetails?.firstName || currentUserDetails?.lastName || "User"}
+                      {getDisplayName()}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground truncate">
                       {currentUserEmail}
                     </p>
+                     {currentUserDetails?.accountType && (
+                       <p className="text-xs leading-none text-muted-foreground/80 capitalize pt-1">
+                         Account Type: {currentUserDetails.accountType}
+                       </p>
+                     )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -126,3 +148,4 @@ export default function Header() {
     </header>
   );
 }
+
