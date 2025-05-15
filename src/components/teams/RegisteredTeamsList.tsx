@@ -2,10 +2,10 @@
 "use client";
 
 import type { RegisteredEntry, ParticipantType } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Users, Shield, User, Users2, FileSignature } from "lucide-react";
+import { Trash2, Users, Shield, User, Users2, FileSignature, XCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +21,12 @@ import {
 interface RegisteredTeamsListProps {
   registrations: RegisteredEntry[];
   onRemoveRegistration: (registrationId: string) => void;
+  onClearAllRegistrations: () => void;
   maxTeams: number;
   participantType: ParticipantType;
 }
 
-export default function RegisteredTeamsList({ registrations, onRemoveRegistration, maxTeams, participantType }: RegisteredTeamsListProps) {
+export default function RegisteredTeamsList({ registrations, onRemoveRegistration, onClearAllRegistrations, maxTeams, participantType }: RegisteredTeamsListProps) {
   if (registrations.length === 0) {
     return (
       <Card className="mt-6">
@@ -65,11 +66,38 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
 
   return (
     <Card className="mt-8">
-      <CardHeader>
-        <CardTitle>Registered Entries ({registrations.length}/{maxTeams})</CardTitle>
-        <CardDescription>
-          List of all entries registered for this tournament.
-        </CardDescription>
+      <CardHeader className="flex flex-row justify-between items-center">
+        <div>
+          <CardTitle>Registered Entries ({registrations.length}/{maxTeams})</CardTitle>
+          <CardDescription>
+            List of all entries registered for this tournament.
+          </CardDescription>
+        </div>
+        {registrations.length > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <XCircle className="mr-2 h-4 w-4" /> Clear All
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently remove all
+                  ({registrations.length}) registered entries from this tournament.
+                  This will also clear any existing bracket progress.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onClearAllRegistrations}>
+                  Yes, Clear All Entries
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardHeader>
       <CardContent>
         <Table>

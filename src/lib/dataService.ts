@@ -19,7 +19,7 @@ export const createTournament = (tournamentData: TournamentCreation): Tournament
   const { matchesInfo, ...restOfData } = tournamentData;
   const newTournament: Tournament = {
     ...restOfData,
-    id: crypto.randomUUID(), 
+    id: crypto.randomUUID(),
     matches: [], // Initialize with empty matches array
   };
   tournaments.push(newTournament);
@@ -33,15 +33,15 @@ export const updateTournament = (id: string, updates: Partial<Tournament>): Tour
   if (index !== -1) {
     // If matchesInfo is part of updates, handle it; otherwise, just spread updates
     const { matchesInfo, ...restOfUpdates } = updates as TournamentCreation & Partial<Tournament>;
-    
+
     // Ensure existing matches are preserved if not explicitly being updated
     const currentMatches = tournaments[index].matches || [];
-    
-    tournaments[index] = { 
-        ...tournaments[index], 
+
+    tournaments[index] = {
+        ...tournaments[index],
         ...restOfUpdates,
         // Explicitly handle 'matches' update, don't let it be accidentally overridden by undefined from form
-        matches: updates.matches !== undefined ? updates.matches : currentMatches 
+        matches: updates.matches !== undefined ? updates.matches : currentMatches
     };
     setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
     return tournaments[index];
@@ -116,7 +116,7 @@ export const addTournamentRegistration = (tournamentId: string, entryName: strin
   if (!tournament) {
     throw new Error("Tournament not found for registration.");
   }
-  
+
   if (registrations.length >= tournament.maxTeams) {
     throw new Error("Maximum number of teams registered for this tournament.");
   }
@@ -141,4 +141,14 @@ export const removeTournamentRegistration = (tournamentId: string, registrationI
     return true;
   }
   return false;
+};
+
+export const removeAllTournamentRegistrations = (tournamentId: string): boolean => {
+  // Check if registrations existed before removing
+  const existingRegistrations = getItem<RegisteredEntry[]>(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
+  if (existingRegistrations && existingRegistrations.length > 0) {
+    removeItem(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
+    return true; // Indicate that registrations were cleared
+  }
+  return false; // Indicate no registrations were present to clear
 };

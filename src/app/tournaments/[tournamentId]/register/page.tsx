@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Tournament, RegisteredEntry, Player, TeamRegistrationPayload } from "@/lib/types";
-import { getTournamentById, getTournamentRegistrations, addTournamentRegistration, removeTournamentRegistration as removeRegistrationService, getPlayers } from "@/lib/dataService";
+import { getTournamentById, getTournamentRegistrations, addTournamentRegistration, removeTournamentRegistration as removeRegistrationService, getPlayers, removeAllTournamentRegistrations } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Ticket, Users, Info, User, Users2 } from "lucide-react";
@@ -57,7 +57,7 @@ export default function RegisterForTournamentPage() {
         toast({ title: "Error", description: "One or more selected players not found.", variant: "destructive" });
         return;
     }
-    
+
     // Check for duplicate players within this tournament
     const existingPlayerIdsInTournament = new Set<string>();
     registrations.forEach(reg => {
@@ -77,7 +77,7 @@ export default function RegisterForTournamentPage() {
 
     try {
       addTournamentRegistration(tournament.id, entryName, selectedPlayers);
-      fetchTournamentData(); 
+      fetchTournamentData();
     } catch (error: any) {
        toast({
         title: "Registration Failed",
@@ -91,7 +91,7 @@ export default function RegisterForTournamentPage() {
     if (!tournament) return;
     const registrationToRemove = registrations.find(r => r.id === registrationId);
     if (removeRegistrationService(tournament.id, registrationId)) {
-      fetchTournamentData(); 
+      fetchTournamentData();
       toast({
         title: "Registration Removed",
         description: `"${registrationToRemove?.entryName || 'Entry'}" has been removed.`,
@@ -101,6 +101,23 @@ export default function RegisterForTournamentPage() {
         title: "Error",
         description: "Failed to remove registration.",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearAllRegistrations = () => {
+    if (!tournament) return;
+    if (removeAllTournamentRegistrations(tournament.id)) {
+      fetchTournamentData();
+      toast({
+        title: "All Registrations Cleared",
+        description: `All entries for "${tournament.name}" have been removed.`,
+      });
+    } else {
+      toast({
+        title: "No Registrations to Clear",
+        description: `There were no entries to remove for "${tournament.name}".`,
+        variant: "default",
       });
     }
   };
@@ -131,7 +148,7 @@ export default function RegisterForTournamentPage() {
       </div>
     );
   }
-  
+
   const getParticipantTypeIcon = (type: Tournament["participantType"]) => {
     switch (type) {
       case "Player":
@@ -164,19 +181,19 @@ export default function RegisterForTournamentPage() {
           <CardHeader>
             <CardTitle>Registration Details</CardTitle>
             <CardDescription>
-              Register your {tournament.participantType.toLowerCase()} for the tournament. 
+              Register your {tournament.participantType.toLowerCase()} for the tournament.
               Max entries: {tournament.maxTeams}. Currently registered: {registrations.length}.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RegistrationForm 
-              tournament={tournament} 
+            <RegistrationForm
+              tournament={tournament}
               onRegister={handleRegisterTeam}
               currentRegistrationsCount={registrations.length}
             />
           </CardContent>
         </Card>
-        
+
         <Card className="md:col-span-1 shadow-md">
           <CardHeader>
             <CardTitle>Tournament Info</CardTitle>
@@ -193,9 +210,10 @@ export default function RegisterForTournamentPage() {
         </Card>
       </div>
 
-      <RegisteredTeamsList 
+      <RegisteredTeamsList
         registrations={registrations}
         onRemoveRegistration={handleRemoveRegistration}
+        onClearAllRegistrations={handleClearAllRegistrations}
         maxTeams={tournament.maxTeams}
         participantType={tournament.participantType}
       />
