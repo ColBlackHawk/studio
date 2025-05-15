@@ -3,25 +3,42 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // Added for redirection
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { APP_NAME } from '@/lib/constants';
-import { LogIn, UserPlus } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+import { getTournaments, getPlayers } from '@/lib/dataService'; // Added imports
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const { login } = useAuth();
+  const router = useRouter(); // Initialize router
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      login(username.trim());
-    } else {
-      // Basic validation feedback, could use react-hook-form for more complex scenarios
+    const trimmedUsername = username.trim();
+
+    if (!trimmedUsername) {
       alert("Username cannot be empty.");
+      return;
+    }
+
+    // Check if user exists
+    const tournaments = getTournaments();
+    const players = getPlayers();
+
+    const userExistsAsOwner = tournaments.some(t => t.ownerId === trimmedUsername);
+    const userExistsAsPlayer = players.some(p => p.nickname === trimmedUsername);
+
+    if (userExistsAsOwner || userExistsAsPlayer) {
+      login(trimmedUsername); // User exists, proceed with login
+    } else {
+      // User not found, redirect to sign-up page
+      router.push('/signup');
     }
   };
 
@@ -40,7 +57,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <CardTitle className="text-2xl">Login to {APP_NAME}</CardTitle>
-          <CardDescription>Enter a username to continue (simulated login).</CardDescription>
+          <CardDescription>Enter your username to continue.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
