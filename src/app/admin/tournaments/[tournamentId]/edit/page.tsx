@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,6 +9,8 @@ import { getTournamentById, updateTournament } from "@/lib/dataService";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EditTournamentPage() {
   const router = useRouter();
@@ -15,31 +18,52 @@ export default function EditTournamentPage() {
   const tournamentId = params.tournamentId as string;
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { currentUserDetails, isLoading: authIsLoading } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
+    if (authIsLoading) return;
+
+    if (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType)) {
+      toast({ title: "Access Denied", description: "You don't have permission to edit tournaments.", variant: "destructive" });
+      router.push("/");
+      return;
+    }
+
     if (tournamentId) {
       const fetchedTournament = getTournamentById(tournamentId);
       if (fetchedTournament) {
+        if (currentUserDetails.accountType === 'Owner' && fetchedTournament.ownerId !== currentUserDetails.email) {
+          toast({ title: "Access Denied", description: "You can only edit tournaments you own.", variant: "destructive" });
+          router.push("/admin/tournaments");
+          return;
+        }
         setTournament(fetchedTournament);
       } else {
-        // Handle tournament not found, e.g., redirect or show error
+        toast({ title: "Not Found", description: "Tournament not found.", variant: "destructive" });
         router.push("/admin/tournaments");
       }
       setIsLoading(false);
     }
-  }, [tournamentId, router]);
+  }, [tournamentId, router, currentUserDetails, authIsLoading, toast]);
 
   const handleSubmit = (data: Tournament) => {
+    // OwnerId should not change on edit, ensure it's correctly passed if needed by update fn
+    // For this app, ownerId is set on creation and is part of the tournament object
     updateTournament(tournamentId, data);
     router.push("/admin/tournaments");
   };
 
-  if (isLoading) {
+  if (isLoading || authIsLoading) {
     return <p>Loading tournament data...</p>;
+  }
+  
+  if (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType)) {
+      return <p>Redirecting...</p>;
   }
 
   if (!tournament) {
-    return <p>Tournament not found.</p>;
+    return <p>Tournament not found or access denied.</p>;
   }
 
   return (

@@ -1,16 +1,34 @@
-import type { ReactNode } from 'react';
 
-// The main AppLayout already provides the sidebar and header.
-// This admin layout can be used for additional admin-specific wrappers or context if needed.
-// For now, it will just render children.
+"use client";
+import type { ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const { currentUserDetails, isLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isLoading && (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
+      toast({
+        title: "Access Denied",
+        description: "You do not have permission to access this area.",
+        variant: "destructive",
+      });
+      router.push('/'); // Redirect non-admins/owners away
+    }
+  }, [currentUserDetails, isLoading, router, toast]);
+
+  if (isLoading || (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
+    // You can render a loading spinner or a simple message here
+    return <p>Loading or checking permissions...</p>; 
+  }
+
   return (
     <div className="w-full">
-      {/* You could add admin-specific breadcrumbs or sub-navigation here if desired */}
-      {/* <div className="mb-4">
-        <h2 className="text-2xl font-semibold text-gray-700">Admin Panel</h2>
-      </div> */}
       {children}
     </div>
   );

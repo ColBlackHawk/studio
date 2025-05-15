@@ -30,66 +30,82 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { useEffect } from "react";
 
-const tournamentFormSchema = z.object({
+const tournamentFormSchemaBase = z.object({
   name: z.string().min(3, { message: "Tournament name must be at least 3 characters." }),
-  owner: z.string().min(2, { message: "Owner name must be at least 2 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   tournamentType: z.enum(["single", "double_elimination"]),
   participantType: z.enum(["Player", "Scotch Doubles", "Team"]),
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
   maxTeams: z.coerce.number().min(2, { message: "Maximum teams/participants must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}),
   matchesInfo: z.string().optional(), 
+  ownerId: z.string(), // ownerId will be an email string
 });
 
-type TournamentFormValues = z.infer<typeof tournamentFormSchema>;
+type TournamentFormValues = z.infer<typeof tournamentFormSchemaBase>;
 
 interface TournamentFormProps {
-  tournament?: Tournament;
-  onSubmit: (data: TournamentCreation | Tournament) => void;
+  tournament?: Tournament; 
+  onSubmit: (data: Omit<TournamentCreation, "id" | "matches">) => void;
   isEditing?: boolean;
 }
 
 export default function TournamentForm({ tournament, onSubmit, isEditing = false }: TournamentFormProps) {
   const { toast } = useToast();
+  const { currentUserEmail, isLoading: authLoading } = useAuth(); // Get currentUserEmail
+
   const defaultValues = tournament
     ? { 
-        ...tournament, 
+        name: tournament.name,
+        description: tournament.description,
+        tournamentType: tournament.tournamentType,
+        participantType: tournament.participantType,
         scheduleDateTime: new Date(tournament.scheduleDateTime),
-        matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : ''
+        maxTeams: tournament.maxTeams,
+        matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : '',
+        ownerId: tournament.ownerId, // email of owner
       }
     : {
         name: "",
-        owner: "",
         description: "",
         tournamentType: "single" as "single" | "double_elimination",
         participantType: "Player" as ParticipantType,
         maxTeams: 8,
         scheduleDateTime: new Date(),
         matchesInfo: "",
+        ownerId: currentUserEmail || "", // Set default ownerId
       };
 
   const form = useForm<TournamentFormValues>({
-    resolver: zodResolver(tournamentFormSchema),
+    resolver: zodResolver(tournamentFormSchemaBase),
     defaultValues,
   });
 
-  const handleSubmit = (data: TournamentFormValues) => {
-    const { matchesInfo, ...submissionDataActual } = data;
-
-    const submissionPayload: TournamentCreation | Tournament = {
-      ...submissionDataActual,
-      scheduleDateTime: data.scheduleDateTime.toISOString(),
-    };
-
-    if (isEditing && tournament) {
-      (submissionPayload as Tournament).id = tournament.id;
-      (submissionPayload as Tournament).matches = tournament.matches; // Preserve existing matches
-    } else {
-         (submissionPayload as TournamentCreation).matches = [];
+  useEffect(() => {
+    if (!isEditing && currentUserEmail && !form.getValues("ownerId")) {
+      form.setValue("ownerId", currentUserEmail);
     }
+  }, [currentUserEmail, isEditing, form]);
+
+
+  const handleSubmit = (data: TournamentFormValues) => {
+    if (!data.ownerId && currentUserEmail) { // Ensure ownerId is set
+        data.ownerId = currentUserEmail;
+    }
+    if (!data.ownerId) {
+        toast({ title: "Error", description: "Tournament owner could not be determined. Please log in.", variant: "destructive"});
+        return;
+    }
+
+    const submissionData: Omit<TournamentCreation, "id" | "matches"> = {
+        ...data,
+        scheduleDateTime: data.scheduleDateTime.toISOString(),
+    };
     
-    onSubmit(submissionPayload);
+    onSubmit(submissionData);
+
     toast({
       title: `Tournament ${isEditing ? 'updated' : 'created'}`,
       description: `${data.name} has been successfully ${isEditing ? 'updated' : 'saved'}.`,
@@ -112,19 +128,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="owner"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Owner/Organizer</FormLabel>
-              <FormControl>
-                <Input placeholder="Your Name / Organization" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        
         <FormField
           control={form.control}
           name="description"
@@ -215,7 +219,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
                         initialFocus
                     />
                     <div className="p-2 border-t">
@@ -271,8 +275,11 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             </FormItem>
           )}
         />
+        {/* Hidden field for ownerId, it will be populated from auth context */}
+        <FormField control={form.control} name="ownerId" render={({ field }) => <Input type="hidden" {...field} />} />
 
-        <Button type="submit" className="w-full md:w-auto">
+
+        <Button type="submit" className="w-full md:w-auto" disabled={authLoading}>
           {isEditing ? "Update Tournament" : "Create Tournament"}
         </Button>
       </form>

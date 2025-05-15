@@ -24,9 +24,17 @@ interface RegisteredTeamsListProps {
   onClearAllRegistrations: () => void;
   maxTeams: number;
   participantType: ParticipantType;
+  canManageEntries?: boolean; // New prop
 }
 
-export default function RegisteredTeamsList({ registrations, onRemoveRegistration, onClearAllRegistrations, maxTeams, participantType }: RegisteredTeamsListProps) {
+export default function RegisteredTeamsList({ 
+  registrations, 
+  onRemoveRegistration, 
+  onClearAllRegistrations, 
+  maxTeams, 
+  participantType,
+  canManageEntries = false // Default to false
+}: RegisteredTeamsListProps) {
   if (registrations.length === 0) {
     return (
       <Card className="mt-6">
@@ -54,12 +62,12 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
   } else if (participantType === "Scotch Doubles") {
     firstColumnHeader = "Pair Name";
     firstColumnIcon = <Users2 className="inline-block mr-1 h-4 w-4" />;
-    secondColumnHeader = "Players"; // Nicknames of the pair
+    secondColumnHeader = "Players"; 
     secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
   } else if (participantType === "Team") {
     firstColumnHeader = "Team Name";
     firstColumnIcon = <Shield className="inline-block mr-1 h-4 w-4" />;
-    secondColumnHeader = "Players"; // Nicknames of team members
+    secondColumnHeader = "Players"; 
     secondColumnIcon = <Users className="inline-block mr-1 h-4 w-4" />;
   }
 
@@ -73,7 +81,7 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
             List of all entries registered for this tournament.
           </CardDescription>
         </div>
-        {registrations.length > 0 && (
+        {canManageEntries && registrations.length > 0 && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm">
@@ -105,14 +113,14 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
             <TableRow>
               <TableHead>{firstColumnIcon}{firstColumnHeader}</TableHead>
               <TableHead>{secondColumnIcon}{secondColumnHeader}</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {canManageEntries && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {registrations.map((entry) => {
               let firstColumnDisplayValue = entry.entryName;
-              if (participantType === "Player" && entry.players && entry.players.length > 0) {
-                firstColumnDisplayValue = entry.players[0].nickname || entry.entryName; // Prioritize direct nickname
+              if (participantType === "Player" && entry.players && entry.players.length > 0 && entry.players[0].nickname) {
+                firstColumnDisplayValue = entry.players[0].nickname; 
               }
 
               return (
@@ -123,29 +131,31 @@ export default function RegisteredTeamsList({ registrations, onRemoveRegistratio
                       ? `${entry.players[0].firstName || ''} ${entry.players[0].lastName || ''}`.trim() || "N/A"
                       : entry.players.map(p => p.nickname).join(", ")}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirm Removal</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to remove "{entry.entryName}" from this tournament?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onRemoveRegistration(entry.id)}>
-                            Remove
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
+                  {canManageEntries && (
+                    <TableCell className="text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirm Removal</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to remove "{entry.entryName}" from this tournament?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onRemoveRegistration(entry.id)}>
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

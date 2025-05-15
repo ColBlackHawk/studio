@@ -22,12 +22,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function TournamentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const tournamentId = params.tournamentId as string;
   const { toast } = useToast();
+  const { currentUserDetails } = useAuth();
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [registrations, setRegistrations] = useState<RegisteredEntry[]>([]);
@@ -46,7 +48,13 @@ export default function TournamentDetailPage() {
     }
   }, [tournamentId, router]);
 
+  const canManageTournament = currentUserDetails?.accountType === 'Admin' || (currentUserDetails?.accountType === 'Owner' && tournament?.ownerId === currentUserDetails?.email);
+
   const handleGenerateBracket = async () => {
+    if (!canManageTournament) {
+      toast({ title: "Permission Denied", description: "You do not have permission to generate the bracket.", variant: "destructive" });
+      return;
+    }
     if (!tournament || registrations.length < 2) {
       toast({
         title: "Cannot Generate Bracket",
@@ -132,7 +140,7 @@ export default function TournamentDetailPage() {
     );
   }
   
-  const canGenerateBracket = registrations.length >= 2;
+  const canGenerateOrResetBracket = canManageTournament && registrations.length >= 2;
   const hasMatches = tournament.matches && tournament.matches.length > 0;
 
   return (
@@ -173,7 +181,7 @@ export default function TournamentDetailPage() {
              <div className="flex items-center">
               <Users className="h-5 w-5 text-muted-foreground mr-2" />
               <span className="font-medium">Owner:</span>&nbsp;
-              {tournament.owner}
+              {tournament.ownerId} {/* Display owner's email/ID */}
             </div>
             <div className="flex items-center">
               <ListChecks className="h-5 w-5 text-muted-foreground mr-2" />
@@ -182,9 +190,10 @@ export default function TournamentDetailPage() {
             </div>
           </div>
         </CardContent>
+        {canManageTournament && (
          <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-between items-center gap-2">
            <p className="text-sm text-muted-foreground">Manage this tournament from the admin panel.</p>
-           {canGenerateBracket ? (
+           {canGenerateOrResetBracket ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" className="shadow-md hover:shadow-lg transition-shadow">
@@ -209,11 +218,12 @@ export default function TournamentDetailPage() {
               </AlertDialogContent>
             </AlertDialog>
            ) : (
-             <Button variant="outline" disabled title="Need at least 2 registered entries to generate a bracket.">
+             <Button variant="outline" disabled title={!canManageTournament ? "Only tournament owner or admin can generate bracket." : "Need at least 2 registered entries."}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Generate Bracket
              </Button>
            )}
          </CardFooter>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
