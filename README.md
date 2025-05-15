@@ -1,7 +1,7 @@
-# Firebase Studio
+# BracketBoard
+This is a Tournament Bracket Board app developed with the assistance of Firebase Studio and Gemini.
 
-This is a NextJS starter in Firebase Studio.
+Manage and register players globaly.
+CRUD Tournament information for Single and Double Elimination for Single and Scotch Doubles
 
-To get started, take a look at src/app/page.tsx.
-
-Tournament with play_in structure for single and double elimination of type single player, scotch doubles and team
+Generate and manage winners via bracket interface and list scheduled matches
