@@ -1,7 +1,38 @@
 
-import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation } from "./types";
+import type { Tournament, Player, RegisteredEntry, TournamentCreation, PlayerCreation, User } from "./types";
 import { getItem, setItem, removeItem } from "./localStorage";
 import { LOCALSTORAGE_KEYS } from "./constants";
+
+// --- User ---
+export const getUsers = (): User[] => {
+  return getItem<User[]>(LOCALSTORAGE_KEYS.USERS) || [];
+};
+
+export const getUserByEmail = (email: string): User | undefined => {
+  const users = getUsers();
+  return users.find(u => u.email.toLowerCase() === email.toLowerCase());
+};
+
+export const createUser = (userData: Pick<User, 'email' | 'firstName' | 'lastName'>): User | null => {
+  if (!userData.email) {
+    console.error("Email is required to create a user.");
+    return null; // Or throw error
+  }
+  if (getUserByEmail(userData.email)) {
+    console.error("User with this email already exists.");
+    return null; // Or throw error
+  }
+  const users = getUsers();
+  const newUser: User = {
+    email: userData.email,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+  };
+  users.push(newUser);
+  setItem(LOCALSTORAGE_KEYS.USERS, users);
+  return newUser;
+};
+
 
 // --- Tournament ---
 export const getTournaments = (): Tournament[] => {
@@ -15,12 +46,11 @@ export const getTournamentById = (id: string): Tournament | undefined => {
 
 export const createTournament = (tournamentData: TournamentCreation): Tournament => {
   const tournaments = getTournaments();
-  // Remove matchesInfo before saving if it exists
   const { matchesInfo, ...restOfData } = tournamentData;
   const newTournament: Tournament = {
-    ...restOfData,
+    ...restOfData, // ownerId here will be an email
     id: crypto.randomUUID(),
-    matches: [], // Initialize with empty matches array
+    matches: [], 
   };
   tournaments.push(newTournament);
   setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
@@ -31,16 +61,11 @@ export const updateTournament = (id: string, updates: Partial<Tournament>): Tour
   let tournaments = getTournaments();
   const index = tournaments.findIndex(t => t.id === id);
   if (index !== -1) {
-    // If matchesInfo is part of updates, handle it; otherwise, just spread updates
     const { matchesInfo, ...restOfUpdates } = updates as TournamentCreation & Partial<Tournament>;
-
-    // Ensure existing matches are preserved if not explicitly being updated
     const currentMatches = tournaments[index].matches || [];
-
     tournaments[index] = {
         ...tournaments[index],
         ...restOfUpdates,
-        // Explicitly handle 'matches' update, don't let it be accidentally overridden by undefined from form
         matches: updates.matches !== undefined ? updates.matches : currentMatches
     };
     setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
@@ -55,7 +80,6 @@ export const deleteTournament = (id: string): boolean => {
   tournaments = tournaments.filter(t => t.id !== id);
   if (tournaments.length < initialLength) {
     setItem(LOCALSTORAGE_KEYS.TOURNAMENTS, tournaments);
-    // Also remove associated registrations
     removeItem(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${id}`);
     return true;
   }
@@ -97,8 +121,6 @@ export const deletePlayer = (id: string): boolean => {
   players = players.filter(p => p.id !== id);
   if (players.length < initialLength) {
     setItem(LOCALSTORAGE_KEYS.PLAYERS, players);
-    // TODO: Consider implications for existing tournament registrations if a player is deleted.
-    // This might require cascading deletes or warnings. For now, it's a simple delete.
     return true;
   }
   return false;
@@ -144,11 +166,10 @@ export const removeTournamentRegistration = (tournamentId: string, registrationI
 };
 
 export const removeAllTournamentRegistrations = (tournamentId: string): boolean => {
-  // Check if registrations existed before removing
   const existingRegistrations = getItem<RegisteredEntry[]>(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
   if (existingRegistrations && existingRegistrations.length > 0) {
     removeItem(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
-    return true; // Indicate that registrations were cleared
+    return true; 
   }
-  return false; // Indicate no registrations were present to clear
+  return false; 
 };

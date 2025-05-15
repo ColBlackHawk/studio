@@ -3,42 +3,46 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Added for redirection
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { APP_NAME } from '@/lib/constants';
-import { LogIn } from 'lucide-react';
-import { getTournaments, getPlayers } from '@/lib/dataService'; // Added imports
+import { LogIn, Mail } from 'lucide-react';
+import { getUserByEmail } from '@/lib/dataService';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const { login } = useAuth();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim().toLowerCase();
 
-    if (!trimmedUsername) {
-      alert("Username cannot be empty.");
+    if (!trimmedEmail) {
+      toast({ title: "Error", description: "Email cannot be empty.", variant: "destructive" });
       return;
     }
 
-    // Check if user exists
-    const tournaments = getTournaments();
-    const players = getPlayers();
+    // Validate email format (simple check)
+    if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
+      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
 
-    const userExistsAsOwner = tournaments.some(t => t.ownerId === trimmedUsername);
-    const userExistsAsPlayer = players.some(p => p.nickname === trimmedUsername);
+    const existingUser = getUserByEmail(trimmedEmail);
 
-    if (userExistsAsOwner || userExistsAsPlayer) {
-      login(trimmedUsername); // User exists, proceed with login
+    if (existingUser) {
+      login(existingUser.email); // User exists, proceed with login
     } else {
       // User not found, redirect to sign-up page
-      router.push('/signup');
+      toast({ title: "Account Not Found", description: "No account found with this email. Please sign up.", variant: "default" });
+      router.push(`/signup?email=${encodeURIComponent(trimmedEmail)}`); // Pass email to signup
     }
   };
 
@@ -57,21 +61,24 @@ export default function LoginPage() {
             </svg>
           </div>
           <CardTitle className="text-2xl">Login to {APP_NAME}</CardTitle>
-          <CardDescription>Enter your username to continue.</CardDescription>
+          <CardDescription>Enter your email address to continue.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="e.g., TournamentMaster"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="text-base"
-              />
+              <Label htmlFor="email">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="pl-10 text-base"
+                />
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">

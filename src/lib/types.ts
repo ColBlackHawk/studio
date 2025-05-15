@@ -1,6 +1,5 @@
 
 export type TournamentType = "single" | "double_elimination";
-// "Player" means individuals, "Scotch Doubles" means pairs, "Team" means named teams of 2 for now.
 export type ParticipantType = "Player" | "Scotch Doubles" | "Team"; 
 
 export interface Player {
@@ -10,7 +9,7 @@ export interface Player {
   lastName?: string;
   apaNumber?: string;
   phone?: string;
-  email?: string;
+  email?: string; // Player's email, can be different from app user's email
   ranking?: number;
 }
 
@@ -26,42 +25,44 @@ export interface RegisteredEntry {
 export interface Match {
   id: string; // Unique ID for this match
   tournamentId: string;
-  round: number; // Round number within its specific bracket (winners, losers)
-  matchNumberInRound: number; // Order within that round
-  bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset'; // Type of bracket this match belongs to
-  team1Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
-  team1FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team1 slot
-  team1FeederType?: 'winner' | 'loser'; // Specifies if team1 comes from winner or loser of team1FeederMatchId
-  team2Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
-  team2FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team2 slot
-  team2FeederType?: 'winner' | 'loser'; // Specifies if team2 comes from winner or loser of team2FeederMatchId
-  winnerId?: string; // ID of RegisteredEntry who won this match
-  score?: string; // e.g., "2-1", "W-F"
-  isBye?: boolean; // If true, team1Id (if present) auto-advances. team2Id should be undefined.
+  round: number; 
+  matchNumberInRound: number; 
+  bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset';
+  team1Id?: string; 
+  team1FeederMatchId?: string; 
+  team1FeederType?: 'winner' | 'loser';
+  team2Id?: string; 
+  team2FeederMatchId?: string; 
+  team2FeederType?: 'winner' | 'loser';
+  winnerId?: string; 
+  score?: string; 
+  isBye?: boolean; 
+}
+
+export interface User {
+  email: string; // Unique identifier for app users
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface Tournament {
   id: string;
   name: string;
-  ownerId: string; // User ID (username for this simulation) of the tournament creator
+  ownerId: string; // User's email of the tournament creator
   description: string;
   tournamentType: TournamentType;
   participantType: ParticipantType;
   scheduleDateTime: string; // ISO string for date and time
   maxTeams: number; // e.g., 8, 16, 32
-  matches?: Match[]; // Optional: schedule can be generated or manually input
+  matches?: Match[]; 
 }
 
-// For forms, use Partial<T> for edits and Omit<T, 'id'> for creations
-export type TournamentCreation = Omit<Tournament, "id" | "matches" | "ownerId"> & { 
-  matchesInfo?: string; // matchesInfo for form
-  ownerId: string; // ownerId is required for creation
+export type TournamentCreation = Omit<Tournament, "id" | "matches"> & { 
+  matchesInfo?: string; 
 };
 export type PlayerCreation = Omit<Player, "id">;
 
-
-// Represents the structure of a team registration payload
 export interface TeamRegistrationPayload {
-  entryName: string; // Team Name if participantType is 'team', or main player's nickname / pair name
-  playerIds: string[]; // IDs of players from the global player list
+  entryName: string; 
+  playerIds: string[]; 
 }

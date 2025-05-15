@@ -30,8 +30,9 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { useEffect } from "react";
 
-// Note: ownerId is handled separately now by the page calling this form.
 const tournamentFormSchemaBase = z.object({
   name: z.string().min(3, { message: "Tournament name must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
@@ -40,20 +41,21 @@ const tournamentFormSchemaBase = z.object({
   scheduleDateTime: z.date({ required_error: "A date and time for the tournament is required."}),
   maxTeams: z.coerce.number().min(2, { message: "Maximum teams/participants must be at least 2." }).max(128, { message: "Maximum teams cannot exceed 128."}),
   matchesInfo: z.string().optional(), 
+  ownerId: z.string(), // ownerId will be an email string
 });
 
-// We infer the type from the base schema without ownerId for form values.
 type TournamentFormValues = z.infer<typeof tournamentFormSchemaBase>;
 
 interface TournamentFormProps {
-  tournament?: Tournament; // Includes ownerId if editing
-  onSubmit: (data: Omit<TournamentCreation, "ownerId"> | Omit<Tournament, "id" | "matches">) => void; // onSubmit will be passed data without ownerId
+  tournament?: Tournament; 
+  onSubmit: (data: Omit<TournamentCreation, "id" | "matches">) => void;
   isEditing?: boolean;
 }
 
 export default function TournamentForm({ tournament, onSubmit, isEditing = false }: TournamentFormProps) {
   const { toast } = useToast();
-  
+  const { currentUserEmail, isLoading: authLoading } = useAuth(); // Get currentUserEmail
+
   const defaultValues = tournament
     ? { 
         name: tournament.name,
@@ -62,7 +64,8 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
         participantType: tournament.participantType,
         scheduleDateTime: new Date(tournament.scheduleDateTime),
         maxTeams: tournament.maxTeams,
-        matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : ''
+        matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : '',
+        ownerId: tournament.ownerId, // email of owner
       }
     : {
         name: "",
@@ -72,6 +75,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
         maxTeams: 8,
         scheduleDateTime: new Date(),
         matchesInfo: "",
+        ownerId: currentUserEmail || "", // Set default ownerId
       };
 
   const form = useForm<TournamentFormValues>({
@@ -79,9 +83,23 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
     defaultValues,
   });
 
+  useEffect(() => {
+    if (!isEditing && currentUserEmail && !form.getValues("ownerId")) {
+      form.setValue("ownerId", currentUserEmail);
+    }
+  }, [currentUserEmail, isEditing, form]);
+
+
   const handleSubmit = (data: TournamentFormValues) => {
-    // The ownerId will be added by the parent page component (new/edit)
-    const submissionData: Omit<TournamentCreation, "ownerId"> | Omit<Tournament, "id" | "matches" | "ownerId"> = {
+    if (!data.ownerId && currentUserEmail) { // Ensure ownerId is set
+        data.ownerId = currentUserEmail;
+    }
+    if (!data.ownerId) {
+        toast({ title: "Error", description: "Tournament owner could not be determined. Please log in.", variant: "destructive"});
+        return;
+    }
+
+    const submissionData: Omit<TournamentCreation, "id" | "matches"> = {
         ...data,
         scheduleDateTime: data.scheduleDateTime.toISOString(),
     };
@@ -110,7 +128,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             </FormItem>
           )}
         />
-        {/* Owner field removed - will be handled by logged-in user context */}
+        
         <FormField
           control={form.control}
           name="description"
@@ -201,7 +219,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
                         initialFocus
                     />
                     <div className="p-2 border-t">
@@ -257,8 +275,11 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             </FormItem>
           )}
         />
+        {/* Hidden field for ownerId, it will be populated from auth context */}
+        <FormField control={form.control} name="ownerId" render={({ field }) => <Input type="hidden" {...field} />} />
 
-        <Button type="submit" className="w-full md:w-auto">
+
+        <Button type="submit" className="w-full md:w-auto" disabled={authLoading}>
           {isEditing ? "Update Tournament" : "Create Tournament"}
         </Button>
       </form>
