@@ -12,8 +12,8 @@ import {
   removeTournamentRegistration as removeRegistrationService, 
   getPlayers, 
   removeAllTournamentRegistrations,
-  getPlayerByEmail, // Added
-  createPlayer // Added
+  getPlayerByEmail,
+  createPlayer 
 } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,14 +22,14 @@ import { ArrowLeft, Ticket, Users, Info, User, Users2, UserPlus, LogOutIcon } fr
 import RegistrationForm from "@/components/teams/RegistrationForm";
 import RegisteredTeamsList from "@/components/teams/RegisteredTeamsList";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext"; // Added
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function RegisterForTournamentPage() {
   const router = useRouter();
   const params = useParams();
   const tournamentId = params.tournamentId as string;
   const { toast } = useToast();
-  const { currentUserDetails } = useAuth(); // Get current user
+  const { currentUserDetails } = useAuth(); 
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [registrations, setRegistrations] = useState<RegisteredEntry[]>([]);
@@ -49,7 +49,6 @@ export default function RegisterForTournamentPage() {
         const currentRegistrations = getTournamentRegistrations(tournamentId);
         setRegistrations(currentRegistrations);
 
-        // Check if current user is registered (only if it's a 'Player' type tournament)
         if (currentUserDetails && fetchedTournament.participantType === 'Player') {
           const userReg = currentRegistrations.find(reg => 
             reg.players.some(p => p.email?.toLowerCase() === currentUserDetails.email.toLowerCase())
@@ -78,6 +77,10 @@ export default function RegisterForTournamentPage() {
     fetchTournamentData();
   }, [fetchTournamentData]);
 
+  const canManageTournamentEntries = 
+    currentUserDetails?.accountType === 'Admin' || 
+    (currentUserDetails?.accountType === 'Owner' && tournament?.ownerId === currentUserDetails?.email);
+
   const handleRegisterCurrentUser = () => {
     if (!tournament || !currentUserDetails) return;
 
@@ -102,7 +105,7 @@ export default function RegisterForTournamentPage() {
       try {
         addTournamentRegistration(tournament.id, playerToRegister.nickname, [playerToRegister]);
         toast({ title: "Registered!", description: `You have been registered for ${tournament.name}.` });
-        fetchTournamentData(); // Re-fetch to update UI
+        fetchTournamentData(); 
       } catch (error: any) {
         toast({ title: "Registration Failed", description: error.message || "Could not register you for the tournament.", variant: "destructive" });
       }
@@ -116,7 +119,7 @@ export default function RegisterForTournamentPage() {
 
     if (removeRegistrationService(tournament.id, currentUserRegistrationId)) {
       toast({ title: "Unregistered", description: `You have been unregistered from ${tournament.name}.` });
-      fetchTournamentData(); // Re-fetch to update UI
+      fetchTournamentData(); 
     } else {
       toast({ title: "Error", description: "Failed to unregister.", variant: "destructive" });
     }
@@ -162,7 +165,10 @@ export default function RegisterForTournamentPage() {
   };
 
   const handleRemoveRegistration = (registrationId: string) => {
-    if (!tournament) return;
+    if (!tournament || !canManageTournamentEntries) {
+        toast({ title: "Permission Denied", description: "You cannot remove this registration.", variant: "destructive" });
+        return;
+    }
     const registrationToRemove = registrations.find(r => r.id === registrationId);
     if (removeRegistrationService(tournament.id, registrationId)) {
       fetchTournamentData();
@@ -180,7 +186,10 @@ export default function RegisterForTournamentPage() {
   };
 
   const handleClearAllRegistrations = () => {
-    if (!tournament) return;
+    if (!tournament || !canManageTournamentEntries) {
+        toast({ title: "Permission Denied", description: "You cannot clear all registrations.", variant: "destructive" });
+        return;
+    }
     if (removeAllTournamentRegistrations(tournament.id)) {
       fetchTournamentData();
       toast({
@@ -276,32 +285,34 @@ export default function RegisterForTournamentPage() {
         </Card>
       )}
       
-      {(showSimplifiedRegistration) && <Separator className="my-8" />}
+      {(showSimplifiedRegistration && canManageTournamentEntries) && <Separator className="my-8" />}
 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <Card className="md:col-span-2 shadow-lg">
-          <CardHeader>
-             <CardTitle>{showSimplifiedRegistration ? "Manual / Other Registration Types" : "Registration Details"}</CardTitle>
-            <CardDescription>
-              {showSimplifiedRegistration 
-                ? `Register another player, or entries for Team/Scotch Doubles tournaments.`
-                : `Register your ${tournament.participantType.toLowerCase()} for the tournament.`
-              }
-              <br />
-              Max entries: {tournament.maxTeams}. Currently registered: {registrations.length}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RegistrationForm
-              tournament={tournament}
-              onRegister={handleRegisterTeam}
-              currentRegistrationsCount={registrations.length}
-            />
-          </CardContent>
-        </Card>
+        {canManageTournamentEntries && (
+            <Card className="md:col-span-2 shadow-lg">
+            <CardHeader>
+                <CardTitle>{showSimplifiedRegistration ? "Manual / Other Registration Types" : "Registration Details"}</CardTitle>
+                <CardDescription>
+                {showSimplifiedRegistration 
+                    ? `Register another player, or entries for Team/Scotch Doubles tournaments.`
+                    : `Register your ${tournament.participantType.toLowerCase()} for the tournament.`
+                }
+                <br />
+                Max entries: {tournament.maxTeams}. Currently registered: {registrations.length}.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <RegistrationForm
+                tournament={tournament}
+                onRegister={handleRegisterTeam}
+                currentRegistrationsCount={registrations.length}
+                />
+            </CardContent>
+            </Card>
+        )}
 
-        <Card className="md:col-span-1 shadow-md">
+        <Card className={cn("shadow-md", canManageTournamentEntries ? "md:col-span-1" : "md:col-span-3")}>
           <CardHeader>
             <CardTitle>Tournament Info</CardTitle>
           </CardHeader>
@@ -323,6 +334,7 @@ export default function RegisterForTournamentPage() {
         onClearAllRegistrations={handleClearAllRegistrations}
         maxTeams={tournament.maxTeams}
         participantType={tournament.participantType}
+        canManageEntries={canManageTournamentEntries}
       />
 
     </div>
