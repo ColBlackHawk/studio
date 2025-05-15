@@ -1,4 +1,4 @@
-# BracketBoard
+# TournamentBracket
 This is a Tournament Bracket Board app developed with the assistance of Firebase Studio and Gemini.
 
 "Create a Next.js and React application called 'BracketBoard' for managing tournaments. The app should provide a user-friendly interface for creating, managing, and participating in tournaments, primarily focusing on bracket generation and match tracking.
