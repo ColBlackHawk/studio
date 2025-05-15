@@ -1,0 +1,80 @@
+Deploying a Next.js application like BracketBoard to cPanel can be a bit different from deploying a traditional PHP or static HTML site. cPanel environments vary, and their support for Node.js (which Next.js relies on) can differ.
+
+Here's a general guide and some common approaches:
+
+Understanding the Challenge:
+
+Next.js apps are Node.js applications. They need a Node.js environment to run for server-side rendering (SSR), API routes, and optimized image handling.
+Traditional cPanel hosting is often optimized for PHP and static sites. Direct Node.js support might require specific features from your hosting provider.
+Common Deployment Strategies on cPanel:
+
+Using cPanel's "Setup Node.js App" Feature (Preferred if available):
+
+Check for Support: Log in to your cPanel and look for an option like "Setup Node.js App," "Node.js Selector," or similar in the "Software" or "Advanced" section. This is the most straightforward method if your host provides it.
+Build Your App Locally:
+Run npm run build in your project directory. This creates an optimized production build in the .next folder.
+Prepare Files for Upload: You'll typically need to upload:
+The .next folder (this is crucial).
+node_modules folder (Alternatively, upload package.json and package-lock.json and install modules on the server via cPanel's interface if it supports it, which is often better).
+package.json
+next.config.ts (or .js)
+Your public folder.
+Configure in cPanel:
+Create Application: In the "Setup Node.js App" interface, create a new application.
+Application Root: Set this to the directory where you uploaded your project files.
+Application URL: Choose the domain/subdomain for your app.
+Application Startup File: This is usually node_modules/.bin/next or you might need a custom startup script (e.g., server.js) if you're running next start. A common approach is to use next start via your package.json scripts. For example, if your package.json has "start": "next start -p $PORT", you might point to that. The cPanel interface will often guide you or default to app.js or server.js. You might need to create a simple server.js if one isn't generated:
+// server.js (simple example, Next.js handles most of this with `next start`)
+const { createServer } = require('http');
+const { parse } = require('url');
+const next = require('next');
+
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev });
+const handle = app.getRequestHandler();
+const port = process.env.PORT || 3000; // cPanel usually sets PORT
+
+app.prepare().then(() => {
+  createServer((req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
+  }).listen(port, (err) => {
+    if (err) throw err;
+    console.log(`> Ready on http://localhost:${port}`);
+  });
+});
+However, often just running the next start command (which cPanel's Node.js setup might do via your package.json scripts.start) is sufficient.
+Node.js Version: Select a compatible Node.js version.
+Environment Variables: Set NODE_ENV to production. If your app uses other environment variables, add them here. The PORT variable is often automatically provided by cPanel.
+Install Dependencies: If you didn't upload node_modules, use the cPanel interface to run npm install.
+Start the App: Use the cPanel interface to start (or restart) your application.
+Static HTML Export (Less Ideal for this App):
+
+If your Next.js app was purely static (no server-side logic, no API routes, no localStorage reliance that needs server interaction which isn't the case for BracketBoard), you could use next export.
+Run npm run build and then next export. This generates an out folder with static HTML/CSS/JS.
+You could then upload the contents of the out folder to your cPanel's public_html or relevant domain directory.
+Why it's not ideal for BracketBoard: BracketBoard uses localStorage which is client-side, but any API routes or server-side features (like Genkit flows, if you use their server-side capabilities) would not work with a static export. The dynamic routing might also need specific server configuration.
+Using a Reverse Proxy (More Advanced):
+
+If cPanel doesn't have a direct Node.js setup but allows you to run Node.js processes (e.g., via SSH and PM2 process manager) and configure Apache/Nginx, you could:
+Run your Next.js app on a specific port (e.g., npm run start which might run on port 3000).
+Configure Apache (via .htaccess and mod_proxy) or Nginx (if your host allows Nginx configuration) to act as a reverse proxy, forwarding requests from your domain to the port your Next.js app is running on.
+This is more complex and requires more control over the server environment than standard shared cPanel hosting usually offers.
+General Tips for cPanel Deployment:
+
+Check Hosting Provider Documentation: Your specific hosting provider is the best source of truth. They often have guides tailored to their cPanel setup.
+.htaccess for Routing (if using Apache): If you're using the Node.js setup feature, cPanel usually configures Apache to route requests correctly to your Node.js app. If you're doing something more manual or run into routing issues (especially with client-side routing), you might need to configure .htaccess in your application root to ensure all requests are handled by your Next.js app. A common rule for SPAs/Next.js apps behind Apache is:
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>
+However, for a Node.js app served via cPanel's Node.js setup, this might conflict or be unnecessary. The "Setup Node.js App" feature usually handles this.
+Memory and CPU Limits: Shared cPanel hosting has resource limits. Complex Next.js apps might hit these. If you experience performance issues, you might need to consider a VPS or a hosting platform optimized for Node.js (like Vercel, Netlify, Render, Firebase Hosting with Cloud Functions/Run).
+Recommendation:
+
+The "Setup Node.js App" feature in cPanel is by far the most recommended and user-friendly way if your host provides it. If not, deploying a full-featured Next.js app on basic cPanel can be challenging, and you might want to explore Node.js specific hosting platforms.
