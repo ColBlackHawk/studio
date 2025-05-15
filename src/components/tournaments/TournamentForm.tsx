@@ -31,9 +31,9 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-const tournamentFormSchema = z.object({
+// Note: ownerId is handled separately now by the page calling this form.
+const tournamentFormSchemaBase = z.object({
   name: z.string().min(3, { message: "Tournament name must be at least 3 characters." }),
-  owner: z.string().min(2, { message: "Owner name must be at least 2 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   tournamentType: z.enum(["single", "double_elimination"]),
   participantType: z.enum(["Player", "Scotch Doubles", "Team"]),
@@ -42,25 +42,30 @@ const tournamentFormSchema = z.object({
   matchesInfo: z.string().optional(), 
 });
 
-type TournamentFormValues = z.infer<typeof tournamentFormSchema>;
+// We infer the type from the base schema without ownerId for form values.
+type TournamentFormValues = z.infer<typeof tournamentFormSchemaBase>;
 
 interface TournamentFormProps {
-  tournament?: Tournament;
-  onSubmit: (data: TournamentCreation | Tournament) => void;
+  tournament?: Tournament; // Includes ownerId if editing
+  onSubmit: (data: Omit<TournamentCreation, "ownerId"> | Omit<Tournament, "id" | "matches">) => void; // onSubmit will be passed data without ownerId
   isEditing?: boolean;
 }
 
 export default function TournamentForm({ tournament, onSubmit, isEditing = false }: TournamentFormProps) {
   const { toast } = useToast();
+  
   const defaultValues = tournament
     ? { 
-        ...tournament, 
+        name: tournament.name,
+        description: tournament.description,
+        tournamentType: tournament.tournamentType,
+        participantType: tournament.participantType,
         scheduleDateTime: new Date(tournament.scheduleDateTime),
+        maxTeams: tournament.maxTeams,
         matchesInfo: tournament.matches && tournament.matches.length > 0 ? "Bracket exists. Use bracket management features." : ''
       }
     : {
         name: "",
-        owner: "",
         description: "",
         tournamentType: "single" as "single" | "double_elimination",
         participantType: "Player" as ParticipantType,
@@ -70,26 +75,19 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
       };
 
   const form = useForm<TournamentFormValues>({
-    resolver: zodResolver(tournamentFormSchema),
+    resolver: zodResolver(tournamentFormSchemaBase),
     defaultValues,
   });
 
   const handleSubmit = (data: TournamentFormValues) => {
-    const { matchesInfo, ...submissionDataActual } = data;
-
-    const submissionPayload: TournamentCreation | Tournament = {
-      ...submissionDataActual,
-      scheduleDateTime: data.scheduleDateTime.toISOString(),
+    // The ownerId will be added by the parent page component (new/edit)
+    const submissionData: Omit<TournamentCreation, "ownerId"> | Omit<Tournament, "id" | "matches" | "ownerId"> = {
+        ...data,
+        scheduleDateTime: data.scheduleDateTime.toISOString(),
     };
-
-    if (isEditing && tournament) {
-      (submissionPayload as Tournament).id = tournament.id;
-      (submissionPayload as Tournament).matches = tournament.matches; // Preserve existing matches
-    } else {
-         (submissionPayload as TournamentCreation).matches = [];
-    }
     
-    onSubmit(submissionPayload);
+    onSubmit(submissionData);
+
     toast({
       title: `Tournament ${isEditing ? 'updated' : 'created'}`,
       description: `${data.name} has been successfully ${isEditing ? 'updated' : 'saved'}.`,
@@ -112,19 +110,7 @@ export default function TournamentForm({ tournament, onSubmit, isEditing = false
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="owner"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Owner/Organizer</FormLabel>
-              <FormControl>
-                <Input placeholder="Your Name / Organization" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Owner field removed - will be handled by logged-in user context */}
         <FormField
           control={form.control}
           name="description"

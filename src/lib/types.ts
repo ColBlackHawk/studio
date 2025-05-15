@@ -30,21 +30,20 @@ export interface Match {
   matchNumberInRound: number; // Order within that round
   bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset'; // Type of bracket this match belongs to
   team1Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
+  team1FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team1 slot
+  team1FeederType?: 'winner' | 'loser'; // Specifies if team1 comes from winner or loser of team1FeederMatchId
   team2Id?: string; // ID of RegisteredEntry, or undefined if TBD/Bye
+  team2FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team2 slot
+  team2FeederType?: 'winner' | 'loser'; // Specifies if team2 comes from winner or loser of team2FeederMatchId
   winnerId?: string; // ID of RegisteredEntry who won this match
   score?: string; // e.g., "2-1", "W-F"
   isBye?: boolean; // If true, team1Id (if present) auto-advances. team2Id should be undefined.
-  
-  team1FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team1 slot
-  team1FeederType?: 'winner' | 'loser'; // Specifies if team1 comes from winner or loser of team1FeederMatchId
-  team2FeederMatchId?: string; // ID of the match in the PREVIOUS round/bracket that feeds team2 slot
-  team2FeederType?: 'winner' | 'loser'; // Specifies if team2 comes from winner or loser of team2FeederMatchId
 }
 
 export interface Tournament {
   id: string;
   name: string;
-  owner: string; // User ID or name
+  ownerId: string; // User ID (username for this simulation) of the tournament creator
   description: string;
   tournamentType: TournamentType;
   participantType: ParticipantType;
@@ -54,7 +53,10 @@ export interface Tournament {
 }
 
 // For forms, use Partial<T> for edits and Omit<T, 'id'> for creations
-export type TournamentCreation = Omit<Tournament, "id" | "matches"> & { matchesInfo?: string }; // matchesInfo for form
+export type TournamentCreation = Omit<Tournament, "id" | "matches" | "ownerId"> & { 
+  matchesInfo?: string; // matchesInfo for form
+  ownerId: string; // ownerId is required for creation
+};
 export type PlayerCreation = Omit<Player, "id">;
 
 
