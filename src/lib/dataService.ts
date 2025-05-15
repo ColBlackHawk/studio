@@ -18,27 +18,51 @@ export const createUser = (userData: {
   nickname: string;
   firstName?: string;
   lastName?: string;
-  accountType: AccountType;
+  accountType: AccountType; // This will be overridden for the admin user
 }): User | null => {
   if (!userData.email || !userData.nickname) {
     console.error("Email and Nickname are required to create a user.");
     return null;
   }
-  if (getUserByEmail(userData.email)) {
+  
+  const isAdminEmail = userData.email.toLowerCase() === 'admin@tournamentbracket.com';
+
+  if (!isAdminEmail && getUserByEmail(userData.email)) {
     console.error("User with this email already exists.");
     return null;
   }
+  
   const users = getUsers();
-  const newUser: User = {
-    email: userData.email,
-    nickname: userData.nickname,
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    accountType: userData.accountType,
-  };
-  users.push(newUser);
+  let finalUserData: User;
+
+  if (isAdminEmail) {
+    // For the admin email, force specific details and overwrite if already exists
+    const existingAdminIndex = users.findIndex(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
+    finalUserData = {
+      email: 'admin@tournamentbracket.com',
+      nickname: 'Admin', // Force nickname
+      firstName: userData.firstName || 'Admin',
+      lastName: userData.lastName || 'User',
+      accountType: 'Admin', // Force account type
+    };
+    if (existingAdminIndex !== -1) {
+      users[existingAdminIndex] = finalUserData; // Update if exists
+    } else {
+      users.push(finalUserData);
+    }
+  } else {
+    finalUserData = {
+      email: userData.email,
+      nickname: userData.nickname,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      accountType: userData.accountType, // Use provided for others
+    };
+    users.push(finalUserData);
+  }
+  
   setItem(LOCALSTORAGE_KEYS.USERS, users);
-  return newUser;
+  return finalUserData;
 };
 
 
@@ -177,8 +201,12 @@ export const removeAllTournamentRegistrations = (tournamentId: string): boolean 
   const existingRegistrations = getItem<RegisteredEntry[]>(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
   if (existingRegistrations && existingRegistrations.length > 0) {
     removeItem(`${LOCALSTORAGE_KEYS.REGISTRATIONS_PREFIX}${tournamentId}`);
+    // Also clear matches if all registrations are removed, as the bracket is no longer valid
+    const tournament = getTournamentById(tournamentId);
+    if (tournament) {
+        updateTournament(tournamentId, { ...tournament, matches: [] });
+    }
     return true; 
   }
   return false; 
 };
-
