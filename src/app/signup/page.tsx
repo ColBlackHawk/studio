@@ -9,18 +9,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { APP_NAME } from '@/lib/constants';
-import { LogIn, UserPlus } from 'lucide-react';
+import { UserPlus, LogIn } from 'lucide-react';
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const [username, setUsername] = useState('');
-  const { login } = useAuth();
+  const { login } = useAuth(); // Using login for sign-up in this simulated auth
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (username.trim()) {
+      // In a real app, you'd have a separate signup function that might check for uniqueness, hash passwords, etc.
+      // For this simulation, "signing up" is the same as logging in with a new username.
       login(username.trim());
     } else {
-      // Basic validation feedback, could use react-hook-form for more complex scenarios
       alert("Username cannot be empty.");
     }
   };
@@ -29,8 +30,8 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[calc(100vh-150px)]">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-primary">
+           <div className="flex justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-primary">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                 <path d="M2 17l10 5 10-5"></path>
                 <path d="M2 12l10 5 10-5"></path>
@@ -39,8 +40,8 @@ export default function LoginPage() {
                 <path d="M4 12v5.5"></path>
             </svg>
           </div>
-          <CardTitle className="text-2xl">Login to {APP_NAME}</CardTitle>
-          <CardDescription>Enter a username to continue (simulated login).</CardDescription>
+          <CardTitle className="text-2xl">Create Account for {APP_NAME}</CardTitle>
+          <CardDescription>Choose a username to get started.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -49,23 +50,24 @@ export default function LoginPage() {
               <Input
                 id="username"
                 type="text"
-                placeholder="e.g., TournamentMaster"
+                placeholder="Choose your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 className="text-base"
               />
             </div>
+            {/* In a real app, you'd have password, confirm password, email, etc. */}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full">
-              <LogIn className="mr-2 h-4 w-4" /> Login
+              <UserPlus className="mr-2 h-4 w-4" /> Sign Up
             </Button>
             <div className="text-center text-sm">
-              Don't have an account?{' '}
+              Already have an account?{' '}
               <Button variant="link" asChild className="p-0 h-auto font-semibold">
-                <Link href="/signup">
-                  Sign Up
+                <Link href="/login">
+                   Login
                 </Link>
               </Button>
             </div>
