@@ -12,13 +12,14 @@ interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  adminOnly?: boolean;
+  adminOnly?: boolean; // True if only 'Admin' can see
+  ownerOrAdmin?: boolean; // True if 'Owner' or 'Admin' can see
 }
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy },
-  { href: "/admin/players", label: "Manage Players", icon: Users },
+  { href: "/admin/tournaments", label: "Manage Tournaments", icon: Trophy, ownerOrAdmin: true },
+  { href: "/admin/players", label: "Manage Players", icon: Users, ownerOrAdmin: true },
   { href: "/admin/users", label: "Manage Users", icon: ShieldAlert, adminOnly: true },
   // Example of a settings link if needed in future
   // { href: "/settings", label: "Settings", icon: Settings },
@@ -41,6 +42,10 @@ export default function SidebarNav({ isMobile = false }: SidebarNavProps) {
         if (item.adminOnly && currentUserDetails?.accountType !== 'Admin') {
           return null;
         }
+        if (item.ownerOrAdmin && !['Admin', 'Owner'].includes(currentUserDetails?.accountType || '')) {
+          return null;
+        }
+        
         return (
           <Link
             key={item.label}
@@ -61,3 +66,4 @@ export default function SidebarNav({ isMobile = false }: SidebarNavProps) {
     </nav>
   );
 }
+

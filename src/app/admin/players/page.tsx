@@ -21,22 +21,32 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function ManagePlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { currentUserDetails, isLoading: authIsLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authIsLoading && (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
+      toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
+      router.push("/");
+    } else {
+      fetchPlayers();
+    }
+  }, [currentUserDetails, authIsLoading, router, toast]);
 
   const fetchPlayers = () => {
     setPlayers(getPlayers());
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
   const handleDeletePlayer = (id: string, nickname: string) => {
+    // Admins can delete any player. Owners can also delete players (no ownership on players themselves).
     if (deletePlayerService(id)) {
       fetchPlayers(); // Refresh list
       toast({
@@ -52,8 +62,11 @@ export default function ManagePlayersPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authIsLoading) {
     return <p>Loading players...</p>;
+  }
+  if (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType)) {
+    return <p>Redirecting...</p>;
   }
 
   return (

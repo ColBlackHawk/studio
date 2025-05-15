@@ -21,22 +21,44 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function ManageTournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { currentUserDetails, isLoading: authIsLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authIsLoading && (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
+      toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
+      router.push("/");
+    } else {
+      fetchTournaments();
+    }
+  }, [currentUserDetails, authIsLoading, router, toast]);
+
 
   const fetchTournaments = () => {
-    setTournaments(getTournaments());
+    let fetchedTournaments = getTournaments();
+    // If the user is an 'Owner', filter to show only their tournaments
+    if (currentUserDetails?.accountType === 'Owner') {
+      fetchedTournaments = fetchedTournaments.filter(t => t.ownerId === currentUserDetails.email);
+    }
+    setTournaments(fetchedTournaments);
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchTournaments();
-  }, []);
 
   const handleDeleteTournament = (id: string, name: string) => {
+    const tournamentToDelete = tournaments.find(t => t.id === id);
+    if (currentUserDetails?.accountType !== 'Admin' && tournamentToDelete?.ownerId !== currentUserDetails?.email) {
+        toast({ title: "Permission Denied", description: "You can only delete tournaments you own.", variant: "destructive" });
+        return;
+    }
+
     if (deleteTournamentService(id)) {
       fetchTournaments(); // Refresh list
       toast({
@@ -52,9 +74,13 @@ export default function ManageTournamentsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authIsLoading) {
     return <p>Loading tournaments...</p>;
   }
+   if (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType)) {
+    return <p>Redirecting...</p>; // Or a more user-friendly access denied message
+  }
+
 
   return (
     <div className="space-y-6">
@@ -72,7 +98,10 @@ export default function ManageTournamentsPage() {
           <CardHeader>
             <CardTitle>No Tournaments Found</CardTitle>
             <CardDescription>
-              Get started by creating a new tournament.
+              {currentUserDetails?.accountType === 'Owner' 
+                ? "You haven't created any tournaments yet. Get started by creating a new one."
+                : "Get started by creating a new tournament."
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center py-10">
@@ -96,49 +125,58 @@ export default function ManageTournamentsPage() {
                   <TableHead>Participant Type</TableHead>
                   <TableHead><CalendarDays className="inline-block mr-1 h-4 w-4" />Date</TableHead>
                   <TableHead><Users className="inline-block mr-1 h-4 w-4" />Max Entries</TableHead>
+                  {currentUserDetails?.accountType === 'Admin' && <TableHead>Owner</TableHead>}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tournaments.map((tournament) => (
-                  <TableRow key={tournament.id}>
-                    <TableCell className="font-medium">{tournament.name}</TableCell>
-                    <TableCell className="capitalize">{tournament.tournamentType.replace("_", " ")}</TableCell>
-                    <TableCell>{tournament.participantType}</TableCell>
-                    <TableCell>{new Date(tournament.scheduleDateTime).toLocaleDateString()}</TableCell>
-                    <TableCell>{tournament.maxTeams}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="icon" asChild title="View Details">
-                        <Link href={`/tournaments/${tournament.id}`}><Eye className="h-4 w-4" /></Link>
-                      </Button>
-                      <Button variant="outline" size="icon" asChild title="Edit Tournament">
-                        <Link href={`/admin/tournaments/${tournament.id}/edit`}><Edit className="h-4 w-4" /></Link>
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="icon" title="Delete Tournament">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the tournament
-                              "{tournament.name}" and all its associated data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteTournament(tournament.id, tournament.name)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {tournaments.map((tournament) => {
+                  const canEditOrDelete = currentUserDetails?.accountType === 'Admin' || tournament.ownerId === currentUserDetails?.email;
+                  return (
+                    <TableRow key={tournament.id}>
+                      <TableCell className="font-medium">{tournament.name}</TableCell>
+                      <TableCell className="capitalize">{tournament.tournamentType.replace("_", " ")}</TableCell>
+                      <TableCell>{tournament.participantType}</TableCell>
+                      <TableCell>{new Date(tournament.scheduleDateTime).toLocaleDateString()}</TableCell>
+                      <TableCell>{tournament.maxTeams}</TableCell>
+                      {currentUserDetails?.accountType === 'Admin' && <TableCell>{tournament.ownerId}</TableCell>}
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="outline" size="icon" asChild title="View Details">
+                          <Link href={`/tournaments/${tournament.id}`}><Eye className="h-4 w-4" /></Link>
+                        </Button>
+                        {canEditOrDelete && (
+                          <>
+                            <Button variant="outline" size="icon" asChild title="Edit Tournament">
+                              <Link href={`/admin/tournaments/${tournament.id}/edit`}><Edit className="h-4 w-4" /></Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon" title="Delete Tournament">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the tournament
+                                    "{tournament.name}" and all its associated data.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteTournament(tournament.id, tournament.name)}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
