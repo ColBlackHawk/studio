@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: 'Manage your tournaments with ease using BracketBoard.',
+  description: 'Manage your tournaments with ease using TournamentBracket.',
 };
 
 export default function RootLayout({

@@ -7,4 +7,4 @@ export const LOCALSTORAGE_KEYS = {
   REGISTRATIONS_PREFIX: "bracketboard_registrations_", 
 };
 
-export const APP_NAME = "BracketBoard";
+export const APP_NAME = "TournamentBracket";
