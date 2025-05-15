@@ -23,6 +23,7 @@ import RegistrationForm from "@/components/teams/RegistrationForm";
 import RegisteredTeamsList from "@/components/teams/RegisteredTeamsList";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils"; // Added missing import
 
 export default function RegisterForTournamentPage() {
   const router = useRouter();
