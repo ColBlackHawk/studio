@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileOverview Utility functions for generating and managing tournament brackets.
@@ -20,27 +21,75 @@ const getNextPowerOfTwo = (n: number): number => {
   return power;
 };
 
-// Helper to check if a number is a power of two
-const isPowerOfTwo = (n: number): boolean => {
-    if (n <= 0) return false;
-    return (n & (n - 1)) === 0;
-};
+// Helper to create matches from a list of feeders (either direct participant IDs or feeder match objects)
+async function createMatchesFromFeeders(
+  tournamentId: string,
+  round: number,
+  startingMatchNumberInRound: number,
+  feeders: (string | { winnerOfMatchId: string } | { loserOfMatchId: string })[],
+  bracketType: 'winners' | 'losers' | 'grandFinal' | 'grandFinalReset'
+): Promise<{ matches: Match[], nextRoundFeeders: { winnerOfMatchId: string }[] }> {
+  const createdMatches: Match[] = [];
+  const nextFeeders: { winnerOfMatchId: string }[] = [];
+  let matchNumber = startingMatchNumberInRound;
 
-// Helper to get the largest power of two less than or equal to n
-const getPreviousPowerOfTwo = (n: number): number => {
-    if (n <= 0) return 0;
-    let power = 1;
-    while (power * 2 <= n) {
-        power *= 2;
+  for (let i = 0; i < feeders.length; i += 2) {
+    const feeder1 = feeders[i];
+    const feeder2 = feeders[i + 1]; // Might be undefined if odd number of feeders
+
+    const matchId = crypto.randomUUID();
+    const newMatch: Match = {
+      id: matchId,
+      tournamentId,
+      round,
+      matchNumberInRound: matchNumber++,
+      bracketType,
+      isBye: false,
+    };
+
+    if (typeof feeder1 === 'string') {
+      newMatch.team1Id = feeder1;
+    } else if ('winnerOfMatchId' in feeder1) {
+      newMatch.team1FeederMatchId = feeder1.winnerOfMatchId;
+      newMatch.team1FeederType = 'winner';
+    } else if ('loserOfMatchId' in feeder1) {
+      newMatch.team1FeederMatchId = feeder1.loserOfMatchId;
+      newMatch.team1FeederType = 'loser';
+       // Check if the feeder match was a bye itself, if so, this slot might become a bye.
+      // This specific check might be better handled after all matches are structured,
+      // or by ensuring the `feeders` array only contains actual potential participants.
     }
-    return power;
-};
 
-// Helper to get max round for a specific bracket type
-function getMaxRoundForBracket(matches: Match[], bracketType: Match['bracketType']): number {
-    const bracketMatches = matches.filter(m => m.bracketType === bracketType);
-    if (bracketMatches.length === 0) return 0;
-    return Math.max(...bracketMatches.map(m => m.round), 0);
+
+    if (feeder2) {
+      if (typeof feeder2 === 'string') {
+        newMatch.team2Id = feeder2;
+      } else if ('winnerOfMatchId' in feeder2) {
+        newMatch.team2FeederMatchId = feeder2.winnerOfMatchId;
+        newMatch.team2FeederType = 'winner';
+      } else if ('loserOfMatchId' in feeder2) {
+        newMatch.team2FeederMatchId = feeder2.loserOfMatchId;
+        newMatch.team2FeederType = 'loser';
+      }
+    } else {
+      // Feeder2 is undefined, team1 gets a bye IN THIS MATCH
+      newMatch.isBye = true;
+      if (typeof feeder1 === 'string') {
+        newMatch.winnerId = feeder1;
+      } else {
+        // If feeder1 is itself a placeholder, the winner is TBD from that feeder match.
+        // This match is structurally a bye, winner determined when feeder1 resolves.
+      }
+    }
+    
+    // If a team slot is fed by a match that was a bye (and thus has a winner), pre-populate that winner.
+    // This needs access to the full list of matches, so it's tricky to do here.
+    // The advanceWinner logic should handle this propagation when the feeder match is "resolved".
+
+    createdMatches.push(newMatch);
+    nextFeeders.push({ winnerOfMatchId: matchId });
+  }
+  return { matches: createdMatches, nextRoundFeeders: nextFeeders };
 }
 
 
@@ -55,141 +104,70 @@ export async function generateSingleEliminationBracket(
   }
 
   const N = participants.length;
-  if (N < 2) { // Handle 0 or 1 participant case
+  if (N < 2) {
     if (N === 1) {
       return [{
-        id: crypto.randomUUID(),
-        tournamentId,
-        round: 1,
-        matchNumberInRound: 1,
-        bracketType: 'winners', // Single elimination uses 'winners' as its main bracket type
-        team1Id: participants[0].id,
-        isBye: true,
-        winnerId: participants[0].id,
+        id: crypto.randomUUID(), tournamentId, round: 1, matchNumberInRound: 1,
+        bracketType: 'winners', team1Id: participants[0].id, isBye: true, winnerId: participants[0].id,
       }];
     }
-    return []; // No matches for 0 participants
+    return [];
   }
-
-  // Shuffle participants for random pairings if no seeding exists.
-  // For now, we'll use registration order or assume seeding is handled elsewhere.
-  // participants.sort(() => Math.random() - 0.5);
 
   const allMatches: Match[] = [];
-  let roundCounter = 1;
-  type Feeder = string | { winnerOfMatchId: string }; // string is participantId
-  let feedersForCurrentRound: Feeder[];
-
-
-  const numParticipants = N;
-  const mainBracketSize = getNextPowerOfTwo(numParticipants);
-  const numPlayInMatches = numParticipants - (mainBracketSize / 2); // Number of matches to get to power of 2 for next round
+  let currentRoundNumber = 1;
+  
+  // Determine play-in round participants and those with byes
+  const mainBracketSizeAfterPlayIn = getNextPowerOfTwo(N); // Size of the first "full" round
+  const numPlayInMatches = N - mainBracketSizeAfterPlayIn / 2;
   const numParticipantsInPlayIn = numPlayInMatches * 2;
-  const numParticipantsWithByes = numParticipants - numParticipantsInPlayIn;
+  const numParticipantsWithByes = N - numParticipantsInPlayIn;
 
-  const participantsForPlayIn = participants.slice(numParticipantsWithByes); // Lowest N players for play-in
-  const participantsWithByesToRound2 = participants.slice(0, numParticipantsWithByes); // Top N players get byes
-
-  feedersForCurrentRound = participantsWithByesToRound2.map(p => p.id as Feeder);
+  // Lowest N players for play-in (participants are assumed to be somewhat sorted or will be shuffled)
+  // For more deterministic seeding, sorting by seed/ranking would happen here.
+  // For now, slice from the end for play-ins.
+  participants.sort(() => Math.random() - 0.5); // Shuffle for fairness if no seeding
   
+  const playInParticipants = participants.slice(numParticipantsWithByes);
+  const byeParticipants = participants.slice(0, numParticipantsWithByes);
+
+  let feedersForNextRound: (string | { winnerOfMatchId: string })[] = byeParticipants.map(p => p.id);
+
+  // Create Play-In Matches (if necessary)
   if (numPlayInMatches > 0) {
-    let matchNumberInPlayInRound = 1;
-    for (let i = 0; i < participantsForPlayIn.length; i += 2) {
-      const team1Entry = participantsForPlayIn[i];
-      const team2Entry = participantsForPlayIn[i + 1]; // Should always exist due to numPlayInMatches logic
-
-      const matchId = crypto.randomUUID();
-      const playInMatch: Match = {
-        id: matchId,
-        tournamentId,
-        round: roundCounter, // Play-in round is Round 1
-        matchNumberInRound: matchNumberInPlayInRound++,
-        bracketType: 'winners',
-        team1Id: team1Entry.id,
-        team2Id: team2Entry.id, // Assuming pair for play-in
-        isBye: false, 
-      };
-      allMatches.push(playInMatch);
-      feedersForCurrentRound.push({ winnerOfMatchId: matchId });
-    }
-    roundCounter++;
-  } else {
-    // If no play-in matches, all participants are direct feeders for the first round
-    feedersForCurrentRound = participants.map(p => p.id as Feeder);
+    const { matches: playInMatches, nextRoundFeeders: playInWinnerFeeders } = await createMatchesFromFeeders(
+      tournamentId,
+      currentRoundNumber,
+      1, // Match numbering starts at 1 for this round
+      playInParticipants.map(p => p.id), // Play-in participants are direct feeders
+      'winners'
+    );
+    allMatches.push(...playInMatches);
+    feedersForNextRound.push(...playInWinnerFeeders);
+    currentRoundNumber++;
   }
   
-  // Shuffle feeders for the first main round to ensure byes are distributed if any exist at this stage
-  // (e.g., if N=3, 1 bye to R2, 2 play in R1. Winner of R1 plays the bye in R2)
-  feedersForCurrentRound.sort(() => Math.random() - 0.5);
+  // Shuffle feeders before the first main round to distribute play-in winners and bye recipients
+  feedersForNextRound.sort(() => Math.random() - 0.5);
 
-  // Main bracket generation
-  while (feedersForCurrentRound.length > 1 || (feedersForCurrentRound.length === 1 && typeof feedersForCurrentRound[0] !== 'string')) {
-    if (feedersForCurrentRound.length === 1 && typeof feedersForCurrentRound[0] !== 'string') {
-      // This means the final match has been created, and its winner is the tournament winner
-      // No more matches to generate. The last entry in `feedersForCurrentRound` is {winnerOfMatchId: finalMatchId}
-      break;
-    }
-    
-    const currentRoundMatches: Match[] = [];
-    const nextRoundFeeders: Feeder[] = [];
-    let matchNumberInCurrentRound = 1;
-
-    for (let i = 0; i < feedersForCurrentRound.length; i += 2) {
-      const feeder1 = feedersForCurrentRound[i];
-      const feeder2 = feedersForCurrentRound[i + 1]; // This might be undefined if odd number of feeders (bye)
-
-      const matchId = crypto.randomUUID();
-
-      const newMatch: Match = {
-        id: matchId,
-        tournamentId,
-        round: roundCounter,
-        matchNumberInRound: matchNumberInCurrentRound++,
-        bracketType: 'winners',
-        isBye: false,
-      };
-
-      if (typeof feeder1 === 'string') {
-        newMatch.team1Id = feeder1;
-      } else {
-        newMatch.team1FeederMatchId = feeder1.winnerOfMatchId;
-        newMatch.team1FeederType = 'winner';
-      }
-
-      if (feeder2) {
-        if (typeof feeder2 === 'string') {
-          newMatch.team2Id = feeder2;
-        } else {
-          newMatch.team2FeederMatchId = feeder2.winnerOfMatchId;
-          newMatch.team2FeederType = 'winner';
-        }
-      } else {
-        // Feeder2 is undefined, so team1 gets a bye in this match
-        newMatch.isBye = true;
-        newMatch.winnerId = newMatch.team1Id; // If team1Id is direct participant
-        // If team1Id is from a feeder match, its winner is not yet known, so newMatch.winnerId remains undefined.
-        // This case (bye because feeder2 is missing, but feeder1 is also a placeholder) is complex.
-        // It implies a structural bye earlier. For SE, this logic means team1 advanced.
-        if (!newMatch.team1Id && newMatch.team1FeederMatchId) {
-           // This should ideally not happen if play-ins are structured correctly to make main bracket power-of-2
-           // If it does, it means a feeder match leads to a bye slot.
-           // The winner of that feederMatchId would get the bye here.
-           // This will be resolved when advanceWinner is called for that feeder match.
-           newMatch.isBye = true; // It's a bye structurally.
-        }
-      }
-      
-      currentRoundMatches.push(newMatch);
-      nextRoundFeeders.push({ winnerOfMatchId: matchId });
-    }
-    
-    allMatches.push(...currentRoundMatches);
-    feedersForCurrentRound = nextRoundFeeders;
-    roundCounter++;
-
-    if (roundCounter > 20) break; // Safety break for unexpected loops
+  // Main Bracket Rounds
+  while (feedersForNextRound.length > 1) {
+    const { matches: currentRoundGeneratedMatches, nextRoundFeeders: nextFeederBatch } = await createMatchesFromFeeders(
+      tournamentId,
+      currentRoundNumber,
+      1, // Match numbering starts at 1 for each new round
+      feedersForNextRound,
+      'winners'
+    );
+    allMatches.push(...currentRoundGeneratedMatches);
+    feedersForNextRound = nextFeederBatch;
+    currentRoundNumber++;
+    if (currentRoundNumber > 20) break; // Safety break
   }
   
+  // At this point, feedersForNextRound contains the winner of the final match.
+  // The bracket is complete.
+
   return allMatches;
 }
 
@@ -204,189 +182,185 @@ export async function generateDoubleEliminationBracket(
     participants = participants.slice(0, maxTeamsInput);
   }
   const N = participants.length;
-  if (N < 2) return N === 1 ? [{ id: crypto.randomUUID(), tournamentId, round: 1, matchNumberInRound: 1, bracketType: 'winners', team1Id: participants[0].id, isBye: true, winnerId: participants[0].id }] : [];
+
+  if (N < 2) {
+    return N === 1 ? [{ id: crypto.randomUUID(), tournamentId, round: 1, matchNumberInRound: 1, bracketType: 'winners', team1Id: participants[0].id, isBye: true, winnerId: participants[0].id }] : [];
+  }
 
   const allMatches: Match[] = [];
+  const wbMatchesByRound: Match[][] = []; // To store WB matches round by round
 
   // --- Winners' Bracket (WB) Generation ---
   let wbRoundCounter = 1;
-  type WBFeeder = string | { winnerOfMatchId: string };
-  let wbFeedersForCurrentRound: WBFeeder[];
+  participants.sort(() => Math.random() - 0.5); // Shuffle for fairness
 
   const wbMainBracketSize = getNextPowerOfTwo(N);
-  const numWbPlayInMatches = N - (wbMainBracketSize / 2);
+  const numWbPlayInMatches = N - wbMainBracketSize / 2;
   const numParticipantsInWbPlayIn = numWbPlayInMatches * 2;
-  const numParticipantsWithByesToWbRound2 = N - numParticipantsInWbPlayIn;
+  const numParticipantsWithByesToWbMain = N - numParticipantsInWbPlayIn;
 
-  const participantsForWbPlayIn = participants.slice(numParticipantsWithByesToWbRound2);
-  const participantsWithByesWb = participants.slice(0, numParticipantsWithByesToWbRound2);
+  const wbPlayInParticipants = participants.slice(numParticipantsWithByesToWbMain);
+  const wbByeParticipants = participants.slice(0, numParticipantsWithByesToWbMain);
 
-  wbFeedersForCurrentRound = participantsWithByesWb.map(p => p.id as WBFeeder);
+  let wbFeedersForCurrentRound: (string | { winnerOfMatchId: string })[] = wbByeParticipants.map(p => p.id);
 
-  const wbPlayInMatches: Match[] = [];
   if (numWbPlayInMatches > 0) {
-    let matchNum = 1;
-    for (let i = 0; i < participantsForWbPlayIn.length; i += 2) {
-      const team1 = participantsForWbPlayIn[i];
-      const team2 = participantsForWbPlayIn[i + 1];
-      const matchId = crypto.randomUUID();
-      const playInMatch: Match = {
-        id: matchId, tournamentId, round: wbRoundCounter, matchNumberInRound: matchNum++,
-        bracketType: 'winners', team1Id: team1.id, team2Id: team2.id,
-      };
-      wbPlayInMatches.push(playInMatch);
-      wbFeedersForCurrentRound.push({ winnerOfMatchId: matchId });
-    }
-    allMatches.push(...wbPlayInMatches);
+    const { matches: playInMatches, nextRoundFeeders: playInWinnerFeeders } = await createMatchesFromFeeders(
+      tournamentId, wbRoundCounter, 1, wbPlayInParticipants.map(p => p.id), 'winners'
+    );
+    allMatches.push(...playInMatches);
+    wbMatchesByRound.push([...playInMatches]);
+    wbFeedersForCurrentRound.push(...playInWinnerFeeders);
     wbRoundCounter++;
-  } else {
-    wbFeedersForCurrentRound = participants.map(p => p.id as WBFeeder);
   }
-  wbFeedersForCurrentRound.sort(() => Math.random() - 0.5); // Shuffle for main bracket
+  wbFeedersForCurrentRound.sort(() => Math.random() - 0.5);
 
-  let wbMatchesGeneratedInRound: Match[] = [];
-  while (wbFeedersForCurrentRound.length > 1 || (wbFeedersForCurrentRound.length === 1 && typeof wbFeedersForCurrentRound[0] !== 'string')) {
-    if (wbFeedersForCurrentRound.length === 1 && typeof wbFeedersForCurrentRound[0] !== 'string') break;
+  let wbFinalMatchId: string | undefined = undefined;
+  while (wbFeedersForCurrentRound.length >= 1) {
+    if (wbFeedersForCurrentRound.length === 1 && typeof wbFeedersForCurrentRound[0] !== 'string') {
+       // This means the final match has been created, its ID is in the feeder.
+       wbFinalMatchId = (wbFeedersForCurrentRound[0] as {winnerOfMatchId: string}).winnerOfMatchId;
+       break;
+    }
+     if (wbFeedersForCurrentRound.length === 1 && typeof wbFeedersForCurrentRound[0] === 'string') {
+      // Single participant remaining means they are the winner if N=1, or something went wrong if N > 1
+      // This case should be handled by N < 2 check, or if bracket logic leads to single feeder unexpectedly.
+      // For WB, if only one feeder remains and it's a participant ID, they won by byes.
+      // However, the createMatchesFromFeeders should handle this by creating a bye match.
+      // If this point is reached, it means the loop condition might need adjustment or prior logic is flawed.
+      console.warn("WB generation ended with a single direct participant feeder:", wbFeedersForCurrentRound[0]);
+      // Potentially, this participant is the WB winner.
+      // A Match object representing their win might be needed if not already created by `createMatchesFromFeeders`.
+      break;
+    }
+
+
+    const { matches: currentRoundWbMatches, nextRoundFeeders: nextWbFeeders } = await createMatchesFromFeeders(
+      tournamentId, wbRoundCounter, 1, wbFeedersForCurrentRound, 'winners'
+    );
+    allMatches.push(...currentRoundWbMatches);
+    wbMatchesByRound.push([...currentRoundWbMatches]);
+    wbFeedersForCurrentRound = nextWbFeeders;
     
-    const currentWbRoundMatches: Match[] = [];
-    const nextWbRoundFeeders: WBFeeder[] = [];
-    let matchNum = 1;
-    for (let i = 0; i < wbFeedersForCurrentRound.length; i += 2) {
-      const feeder1 = wbFeedersForCurrentRound[i];
-      const feeder2 = wbFeedersForCurrentRound[i + 1];
-      const matchId = crypto.randomUUID();
-      const newMatch: Match = {
-        id: matchId, tournamentId, round: wbRoundCounter, matchNumberInRound: matchNum++,
-        bracketType: 'winners', isBye: false,
-      };
-      if (typeof feeder1 === 'string') newMatch.team1Id = feeder1;
-      else { newMatch.team1FeederMatchId = feeder1.winnerOfMatchId; newMatch.team1FeederType = 'winner'; }
-      if (feeder2) {
-        if (typeof feeder2 === 'string') newMatch.team2Id = feeder2;
-        else { newMatch.team2FeederMatchId = feeder2.winnerOfMatchId; newMatch.team2FeederType = 'winner'; }
-      } else {
-        newMatch.isBye = true; newMatch.winnerId = newMatch.team1Id;
-      }
-      currentWbRoundMatches.push(newMatch);
-      nextWbRoundFeeders.push({ winnerOfMatchId: matchId });
+    if (wbFeedersForCurrentRound.length === 1 && typeof wbFeedersForCurrentRound[0] !== 'string') {
+         wbFinalMatchId = (wbFeedersForCurrentRound[0] as {winnerOfMatchId: string}).winnerOfMatchId;
     }
-    allMatches.push(...currentWbRoundMatches);
-    wbMatchesGeneratedInRound = currentWbRoundMatches; // Keep track of matches in the last generated WB round
-    wbFeedersForCurrentRound = nextWbRoundFeeders;
     wbRoundCounter++;
-    if (wbRoundCounter > 20) break;
+    if (wbRoundCounter > 20) break; // Safety
   }
-  const wbFinalMatchId = wbMatchesGeneratedInRound.length === 1 ? wbMatchesGeneratedInRound[0].id : undefined;
+  
+  if (!wbFinalMatchId && wbMatchesByRound.length > 0) {
+    const lastWbRound = wbMatchesByRound[wbMatchesByRound.length -1];
+    if (lastWbRound.length === 1) wbFinalMatchId = lastWbRound[0].id;
+  }
 
-  // --- Losers' Bracket (LB) Generation (Structured Placeholder) ---
-  // This is a simplified LB structure generation. A fully dynamic one is much more complex.
-  // It roughly mirrors the WB structure but offset.
-  const numWbMainRounds = wbRoundCounter - (numWbPlayInMatches > 0 ? 2:1) ; // Number of rounds in WB after play-ins.
+
+  // --- Losers' Bracket (LB) Generation ---
   let lbRoundCounter = 1;
-  
-  // LB matches fed by losers of WB play-in matches (if any)
-  const wbPlayInLoserMatches: Match[] = [];
-  if (numWbPlayInMatches > 0) {
-    let matchNum = 1;
-    for(let i = 0; i < wbPlayInMatches.length; i+=2) {
-        const feederMatch1 = wbPlayInMatches[i];
-        const feederMatch2 = wbPlayInMatches[i+1]; // Might be undefined
+  let advancingLbWinners: { winnerOfMatchId: string }[] = []; // Winners from the current set of LB matches being processed
+  let lbFinalMatchId: string | undefined = undefined;
 
-        const lbMatchId = crypto.randomUUID();
-        const newLbMatch: Match = {
-            id: lbMatchId, tournamentId, round: lbRoundCounter, matchNumberInRound: matchNum++,
-            bracketType: 'losers', team1FeederMatchId: feederMatch1.id, team1FeederType: 'loser'
-        };
-        if (feederMatch2) {
-            newLbMatch.team2FeederMatchId = feederMatch2.id;
-            newLbMatch.team2FeederType = 'loser';
-        } else { // Only one play-in match means its loser gets a bye in this first LB "pairing" round
-            newLbMatch.isBye = true;
-            // Winner is TBD based on feederMatch1 loser
-        }
-        wbPlayInLoserMatches.push(newLbMatch);
-    }
-    if(wbPlayInLoserMatches.length > 0) {
-        allMatches.push(...wbPlayInLoserMatches);
-        lbRoundCounter++;
-    }
-  }
+  // Iterate through WB rounds to drop losers.
+  // Losers from WB play-ins and WB Round 1 typically play each other first.
+  // Then, winners of those LB matches play losers from WB Round 2, and so on.
 
+  let wbLoserDropRoundIndex = 0; // Index for wbMatchesByRound
 
-  // For a more standard pairing, the LB often has rounds where WB losers meet LB winners.
-  // This is where it gets very tricky to generalize for all N.
-  // Let's assume an N that's a power of 2 for simpler LB structure after WB play-ins.
-  // The number of effective participants for main WB is `wbMainBracketSize / 2` matches in first main round.
-  const firstMainWbRoundNumber = (numWbPlayInMatches > 0 ? 2 : 1);
-  const firstMainWbMatches = allMatches.filter(m => m.bracketType === 'winners' && m.round === firstMainWbRoundNumber);
-
-  let lbFeeders: ({winnerOfMatchId: string} | {loserOfMatchId: string})[] = [];
-  
-  // Initial feeders for LB are losers of the first main WB round
-  firstMainWbMatches.forEach(m => lbFeeders.push({loserOfMatchId: m.id}));
-  
-  // If there were play-in matches, their losers also feed into the LB.
-  // The winners of wbPlayInLoserMatches (if any) also need to be incorporated.
-  // This part needs a very robust algorithm based on N.
-  // For simplification: create a basic LB structure matching WB rounds count.
-  
-  let lbMatchesLastRound: Match[] = [];
-
-  for (let r = 0; r < numWbMainRounds * 2 - 2; r++) { // Approximation of LB rounds
-    if (lbFeeders.length < 2 && r > 0 && lbFeeders.length ===1 ) { // LB final match might have been created
-        // check if this single feeder is for the LB final
-        const potentialLbFinalFeeder = lbFeeders[0];
-        if ('winnerOfMatchId' in potentialLbFinalFeeder) {
-            const feederMatch = allMatches.find(m => m.id === potentialLbFinalFeeder.winnerOfMatchId);
-            if (feederMatch && feederMatch.bracketType === 'losers') {
-                 lbMatchesLastRound = [feederMatch]; // This is likely the LB final winner feeder
-                 break;
-            }
-        }
-    }
-    if (lbFeeders.length < 1) break;
-
-
-    const currentLbRoundMatches: Match[] = [];
-    const nextLbFeeders: ({winnerOfMatchId: string})[] = [];
-    let matchNumLb = 1;
+  while(true) {
+    const currentLbFeeders: ( {loserOfMatchId: string} | {winnerOfMatchId: string} )[] = [];
     
-    for (let i = 0; i < lbFeeders.length; i += 2) {
-        const feeder1Lb = lbFeeders[i];
-        const feeder2Lb = lbFeeders[i+1]; // Might be undefined
-        const lbMatchId = crypto.randomUUID();
-        const newLbMatch: Match = {
-            id: lbMatchId, tournamentId, round: lbRoundCounter, matchNumberInRound: matchNumLb++,
-            bracketType: 'losers', isBye: false,
-        };
-
-        if ('winnerOfMatchId' in feeder1Lb) {
-            newLbMatch.team1FeederMatchId = feeder1Lb.winnerOfMatchId; newLbMatch.team1FeederType = 'winner';
-        } else {
-            newLbMatch.team1FeederMatchId = feeder1Lb.loserOfMatchId; newLbMatch.team1FeederType = 'loser';
-        }
-
-        if (feeder2Lb) {
-            if ('winnerOfMatchId' in feeder2Lb) {
-                newLbMatch.team2FeederMatchId = feeder2Lb.winnerOfMatchId; newLbMatch.team2FeederType = 'winner';
-            } else {
-                newLbMatch.team2FeederMatchId = feeder2Lb.loserOfMatchId; newLbMatch.team2FeederType = 'loser';
+    // Determine how many WB losers drop at this LB stage
+    const wbRoundForCurrentDrop = wbMatchesByRound[wbLoserDropRoundIndex];
+    if (wbRoundForCurrentDrop) {
+        wbRoundForCurrentDrop.forEach(wbMatch => {
+            // Only add losers from non-bye matches. If a WB match was a bye, its "loser" doesn't exist.
+            // The `createMatchesFromFeeders` will handle a feeder that points to a bye match correctly
+            // by creating a bye for the opponent in the LB match.
+             if (!wbMatch.isBye) { // Only non-bye matches produce a loser to drop
+                currentLbFeeders.push({ loserOfMatchId: wbMatch.id });
             }
-        } else {
-            newLbMatch.isBye = true; // Winner is TBD from feeder1
+        });
+    }
+    
+    // Add advancing LB winners from the previous LB processing iteration
+    currentLbFeeders.push(...advancingLbWinners);
+    advancingLbWinners = []; // Reset for the next batch of LB matches
+
+    if (currentLbFeeders.length === 0) {
+        // This can happen if all WB losers have dropped and all LB winners have been processed through pairings.
+        // If advancingLbWinners from the very last LB match creation was one, that's the LB final winner.
+        break; 
+    }
+    if (currentLbFeeders.length === 1 && wbLoserDropRoundIndex >= wbMatchesByRound.length) {
+        // All WB losers dropped, only one LB participant remains. They are the LB winner.
+        if (typeof currentLbFeeders[0] !== 'string' && 'winnerOfMatchId' in currentLbFeeders[0]) {
+             lbFinalMatchId = currentLbFeeders[0].winnerOfMatchId;
         }
-        currentLbRoundMatches.push(newLbMatch);
-        nextLbFeeders.push({winnerOfMatchId: lbMatchId});
+        break;
     }
-    if (currentLbRoundMatches.length > 0) {
-        allMatches.push(...currentLbRoundMatches);
-        lbMatchesLastRound = currentLbRoundMatches;
+    
+    currentLbFeeders.sort(() => Math.random() - 0.5); // Shuffle to mix WB losers and LB winners if strategy demands
+
+    const { matches: createdLbMatches, nextRoundFeeders: nextLbWinnerFeeders } = await createMatchesFromFeeders(
+        tournamentId, lbRoundCounter, 1, currentLbFeeders, 'losers'
+    );
+
+    if (createdLbMatches.length > 0) {
+        allMatches.push(...createdLbMatches);
+        advancingLbWinners = nextLbWinnerFeeders;
+        if (advancingLbWinners.length === 1 && wbLoserDropRoundIndex >= wbMatchesByRound.length -1) {
+            // If only one winner emerges from this LB round AND all or most WB losers have dropped
+            // this winner is likely the LB champion, or feeds into the final LB match.
+             const lastLbMatchCreated = createdLbMatches[createdLbMatches.length -1];
+             const allWbLosersProcessed = wbLoserDropRoundIndex >= wbMatchesByRound.length;
+
+             // A more robust check for LB final:
+             // The LB final typically happens when there's one feeder from WB final loser,
+             // and one feeder from the winner of the penultimate LB stage.
+             // The current logic might make the LB final earlier if shapes align.
+             // This loop structure will create matches as long as there are >= 2 feeders.
+             // If `nextLbWinnerFeeders` has 1, that's the winner of this batch.
+
+            if (nextLbWinnerFeeders.length === 1) {
+                 lbFinalMatchId = nextLbWinnerFeeders[0].winnerOfMatchId;
+                 // If this is the LB final winner, and all WB losers are done, break.
+                 // The exception is the loser of WB Final, who plays this LB winner.
+                 const wbFinal = allMatches.find(m => m.id === wbFinalMatchId);
+                 if (wbFinal && wbFinal.round === (wbMatchesByRound.length + (numWbPlayInMatches > 0 ? 1 : 0))) { // Check if WB final loser has dropped
+                     // This means `lbFinalMatchId` is the true LB winner to go to GF.
+                 } else {
+                     // Still waiting for WB Final loser to drop. The current lbFinalMatchId might be for a penultimate LB match.
+                 }
+            }
+        }
+        lbRoundCounter++;
+    } else if (advancingLbWinners.length === 1) {
+        // No new matches created, but one LB winner remains from previous iteration. This is the LB champ.
+        lbFinalMatchId = advancingLbWinners[0].winnerOfMatchId;
+        break;
+    } else {
+        // No matches and no single winner, implies processing is done or an issue.
+        break;
     }
-    lbFeeders = nextLbFeeders as any; // Cast because next round only has winners
-    lbRoundCounter++;
-    if (lbRoundCounter > 20) break;
+
+    wbLoserDropRoundIndex++;
+    if (lbRoundCounter > 30) break; // Safety break
   }
-  const lbFinalMatchId = lbMatchesLastRound.length === 1 ? lbMatchesLastRound[0].id : undefined;
+  
+  // Check if the loser of the WB final needs to play the current LB champ
+  const wbFinalLoserFeeder = wbFinalMatchId ? { loserOfMatchId: wbFinalMatchId } : undefined;
+  if (wbFinalLoserFeeder && lbFinalMatchId) {
+      const lbWinnerFeeder = {winnerOfMatchId: lbFinalMatchId};
+      const {matches: finalLbStageMatches, nextRoundFeeders: finalLbWinner} = await createMatchesFromFeeders(
+          tournamentId, lbRoundCounter, 1, [wbFinalLoserFeeder, lbWinnerFeeder], 'losers'
+      );
+      if (finalLbStageMatches.length > 0) {
+          allMatches.push(...finalLbStageMatches);
+          if (finalLbWinner.length === 1) {
+              lbFinalMatchId = finalLbWinner[0].winnerOfMatchId;
+          }
+      }
+  }
 
 
   // --- Grand Final (GF) ---
@@ -396,21 +370,14 @@ export async function generateDoubleEliminationBracket(
       team1FeederMatchId: wbFinalMatchId, team1FeederType: 'winner', // WB Winner
       team2FeederMatchId: lbFinalMatchId, team2FeederType: 'winner', // LB Winner
     });
-    allMatches.push({ // GF Reset Match (initially a bye)
+    allMatches.push({ // GF Reset Match (initially a bye, populated if LB winner wins GF1)
       id: crypto.randomUUID(), tournamentId, round: 2, matchNumberInRound: 1, bracketType: 'grandFinalReset',
-      isBye: true, 
+      isBye: true,
     });
   } else {
-    console.warn("Could not determine WB or LB final for Grand Final setup.", {wbFinalMatchId, lbFinalMatchId});
-    // Fallback: create placeholder GF matches if structure is incomplete
-     allMatches.push({
-      id: crypto.randomUUID(), tournamentId, round: 1, matchNumberInRound: 1, bracketType: 'grandFinal',
-      isBye: true,
-    });
-     allMatches.push({
-      id: crypto.randomUUID(), tournamentId, round: 2, matchNumberInRound: 1, bracketType: 'grandFinalReset',
-      isBye: true,
-    });
+    console.warn("DE Gen: Could not determine WB or LB final for Grand Final setup.", {wbFinalMatchId, lbFinalMatchId});
+    allMatches.push({ id: crypto.randomUUID(), tournamentId, round: 1, matchNumberInRound: 1, bracketType: 'grandFinal', isBye: true });
+    allMatches.push({ id: crypto.randomUUID(), tournamentId, round: 2, matchNumberInRound: 1, bracketType: 'grandFinalReset', isBye: true });
   }
 
   return allMatches;
@@ -425,34 +392,33 @@ async function advanceWinnerSingleElimination(
   let newMatches = JSON.parse(JSON.stringify(currentMatches)) as Match[]; 
 
   const uMatchIndex = newMatches.findIndex(m => m.id === updatedMatch.id);
-  if (uMatchIndex === -1) {
-    console.error("Updated match not found for SE advancement start.");
-    return currentMatches;
-  }
-  newMatches[uMatchIndex] = { ...newMatches[uMatchIndex], ...updatedMatch };
+  if (uMatchIndex === -1) return currentMatches;
   
-  if (!updatedMatch.winnerId && !updatedMatch.isBye) { 
-    return clearSubsequentMatches(newMatches, updatedMatch, 'single');
+  newMatches[uMatchIndex] = { ...newMatches[uMatchIndex], ...updatedMatch };
+  const matchBeingUpdated = newMatches[uMatchIndex]; // Use this for consistent state
+
+  if (!matchBeingUpdated.winnerId && !matchBeingUpdated.isBye) { 
+    return clearSubsequentMatches(newMatches, matchBeingUpdated, 'single');
   }
 
-  if (updatedMatch.winnerId) {
+  if (matchBeingUpdated.winnerId) {
     const nextMatchIndex = newMatches.findIndex(m =>
-      m.bracketType === 'winners' &&
-      (m.team1FeederMatchId === updatedMatch.id || m.team2FeederMatchId === updatedMatch.id)
+      m.bracketType === 'winners' && // SE uses 'winners' type
+      (m.team1FeederMatchId === matchBeingUpdated.id || m.team2FeederMatchId === matchBeingUpdated.id)
     );
 
     if (nextMatchIndex !== -1) {
       let nextMatch = { ...newMatches[nextMatchIndex] }; 
       let changed = false;
 
-      if (nextMatch.team1FeederMatchId === updatedMatch.id) {
-        if (nextMatch.team1Id !== updatedMatch.winnerId) {
-          nextMatch.team1Id = updatedMatch.winnerId;
+      if (nextMatch.team1FeederMatchId === matchBeingUpdated.id) {
+        if (nextMatch.team1Id !== matchBeingUpdated.winnerId) {
+          nextMatch.team1Id = matchBeingUpdated.winnerId;
           changed = true;
         }
-      } else if (nextMatch.team2FeederMatchId === updatedMatch.id) {
-        if (nextMatch.team2Id !== updatedMatch.winnerId) {
-          nextMatch.team2Id = updatedMatch.winnerId;
+      } else if (nextMatch.team2FeederMatchId === matchBeingUpdated.id) {
+        if (nextMatch.team2Id !== matchBeingUpdated.winnerId) {
+          nextMatch.team2Id = matchBeingUpdated.winnerId;
           changed = true;
         }
       }
@@ -461,6 +427,7 @@ async function advanceWinnerSingleElimination(
         nextMatch.winnerId = undefined; 
         nextMatch.score = undefined;
         
+        // A match is a bye if one team is present and the other slot has NO defined feeder and NO direct participant
         if (nextMatch.team1Id && !nextMatch.team2Id && !nextMatch.team2FeederMatchId) {
           nextMatch.isBye = true;
           nextMatch.winnerId = nextMatch.team1Id;
@@ -468,11 +435,13 @@ async function advanceWinnerSingleElimination(
           nextMatch.isBye = true;
           nextMatch.winnerId = nextMatch.team2Id;
         } else {
-          nextMatch.isBye = false; 
+          nextMatch.isBye = !!(nextMatch.team1Id && !nextMatch.team2Id && !nextMatch.team2FeederMatchId) || 
+                           !!(!nextMatch.team1Id && !nextMatch.team1FeederMatchId && nextMatch.team2Id);
         }
         
         newMatches[nextMatchIndex] = nextMatch;
-        if (nextMatch.isBye && nextMatch.winnerId && updatedMatch.id !== nextMatch.id) { // Prevent self-recursion if updatedMatch was already setting a bye
+        // If the next match became a bye AND has a winner, recursively advance
+        if (nextMatch.isBye && nextMatch.winnerId && matchBeingUpdated.id !== nextMatch.id) { 
              return advanceWinnerSingleElimination(newMatches, nextMatch, registrations);
         }
       }
@@ -483,54 +452,48 @@ async function advanceWinnerSingleElimination(
 
 
 async function advanceWinnerDoubleElimination(
-  currentMatches: Match[], // This is already a deep copy from `advanceWinner`
+  currentMatches: Match[], 
   updatedMatch: Match,
   registrations: RegisteredEntry[]
 ): Promise<Match[]> {
   let newMatches = JSON.parse(JSON.stringify(currentMatches)) as Match[];
   const uMatchOriginalIndex = newMatches.findIndex(m => m.id === updatedMatch.id);
 
-  if (uMatchOriginalIndex === -1) {
-    console.error("DE: Updated match not found", updatedMatch.id);
-    return newMatches;
-  }
-  // Apply the update to our working copy
+  if (uMatchOriginalIndex === -1) return newMatches;
+  
   newMatches[uMatchOriginalIndex] = { ...newMatches[uMatchOriginalIndex], ...updatedMatch };
-  const currentUpdatedMatchState = newMatches[uMatchOriginalIndex]; // Use this for consistent state
+  const currentUpdatedMatchState = newMatches[uMatchOriginalIndex]; 
 
   if (!currentUpdatedMatchState.winnerId && !currentUpdatedMatchState.isBye) {
-    // If winner was cleared, handle subsequent match clearing
     return clearSubsequentMatches(newMatches, currentUpdatedMatchState, 'double_elimination');
   }
 
-  if (!currentUpdatedMatchState.winnerId) return newMatches; // No winner to advance
+  if (!currentUpdatedMatchState.winnerId) return newMatches; 
 
   const { id: matchId, winnerId, bracketType, team1Id, team2Id } = currentUpdatedMatchState;
-  const loserId = winnerId === team1Id ? team2Id : team1Id;
+  const loserId = (winnerId === team1Id) ? team2Id : team1Id;
 
-  // Function to find and update the next match
   const findAndUpdateNext = async (
     sourceMatchId: string, 
     participantToAdvanceId: string | undefined, 
-    feederType: 'winner' | 'loser'
+    feederTypeForNextSlot: 'winner' | 'loser' // Type of participant we are advancing
   ): Promise<void> => {
     if (!participantToAdvanceId) return;
 
     const nextMatchIdx = newMatches.findIndex(m => 
-      (m.team1FeederMatchId === sourceMatchId && m.team1FeederType === feederType) ||
-      (m.team2FeederMatchId === sourceMatchId && m.team2FeederType === feederType)
+      (m.team1FeederMatchId === sourceMatchId && m.team1FeederType === feederTypeForNextSlot) ||
+      (m.team2FeederMatchId === sourceMatchId && m.team2FeederType === feederTypeForNextSlot)
     );
 
     if (nextMatchIdx !== -1) {
-      const originalNextMatch = {...newMatches[nextMatchIdx]};
       let nextMatchToUpdate = newMatches[nextMatchIdx];
       let changed = false;
 
-      if (nextMatchToUpdate.team1FeederMatchId === sourceMatchId && nextMatchToUpdate.team1FeederType === feederType) {
+      if (nextMatchToUpdate.team1FeederMatchId === sourceMatchId && nextMatchToUpdate.team1FeederType === feederTypeForNextSlot) {
         if (nextMatchToUpdate.team1Id !== participantToAdvanceId) {
            nextMatchToUpdate.team1Id = participantToAdvanceId; changed = true;
         }
-      } else if (nextMatchToUpdate.team2FeederMatchId === sourceMatchId && nextMatchToUpdate.team2FeederType === feederType) {
+      } else if (nextMatchToUpdate.team2FeederMatchId === sourceMatchId && nextMatchToUpdate.team2FeederType === feederTypeForNextSlot) {
          if (nextMatchToUpdate.team2Id !== participantToAdvanceId) {
             nextMatchToUpdate.team2Id = participantToAdvanceId; changed = true;
          }
@@ -539,50 +502,62 @@ async function advanceWinnerDoubleElimination(
       if (changed) {
         nextMatchToUpdate.winnerId = undefined;
         nextMatchToUpdate.score = undefined;
+        
+        const team1Present = !!nextMatchToUpdate.team1Id;
+        const team2Present = !!nextMatchToUpdate.team2Id;
+        const team1FeederDefined = !!nextMatchToUpdate.team1FeederMatchId;
+        const team2FeederDefined = !!nextMatchToUpdate.team2FeederMatchId;
 
-        // Check if this next match becomes a bye
-        if (nextMatchToUpdate.team1Id && !nextMatchToUpdate.team2Id && !nextMatchToUpdate.team2FeederMatchId) {
+        if (team1Present && !team2Present && !team2FeederDefined) {
           nextMatchToUpdate.isBye = true; nextMatchToUpdate.winnerId = nextMatchToUpdate.team1Id;
-        } else if (!nextMatchToUpdate.team1Id && !nextMatchToUpdate.team1FeederMatchId && nextMatchToUpdate.team2Id) {
+        } else if (!team1Present && !team1FeederDefined && team2Present) {
           nextMatchToUpdate.isBye = true; nextMatchToUpdate.winnerId = nextMatchToUpdate.team2Id;
         } else {
           nextMatchToUpdate.isBye = false;
         }
         
-        newMatches[nextMatchIdx] = nextMatchToUpdate; // Persist change
-        // If it became a bye AND has a winner, recursively advance
+        newMatches[nextMatchIdx] = nextMatchToUpdate; 
         if (nextMatchToUpdate.isBye && nextMatchToUpdate.winnerId && nextMatchToUpdate.id !== sourceMatchId) {
-          newMatches = await advanceWinnerDoubleElimination(newMatches, nextMatchToUpdate, registrations);
+          // Important: Pass a copy of newMatches to avoid stale states in recursion
+          newMatches = await advanceWinnerDoubleElimination(JSON.parse(JSON.stringify(newMatches)), nextMatchToUpdate, registrations);
         }
       }
     }
   };
 
   if (bracketType === 'winners') {
-    await findAndUpdateNext(matchId, winnerId, 'winner'); // Advance winner in WB
-    if (loserId) {
-      await findAndUpdateNext(matchId, loserId, 'loser'); // Send loser to LB
+    await findAndUpdateNext(matchId, winnerId, 'winner'); 
+    if (loserId) { // Only advance loser if there was one (not a bye match)
+      await findAndUpdateNext(matchId, loserId, 'loser'); 
     }
   } else if (bracketType === 'losers') {
-    await findAndUpdateNext(matchId, winnerId, 'winner'); // Advance winner in LB
+    await findAndUpdateNext(matchId, winnerId, 'winner'); 
   } else if (bracketType === 'grandFinal') {
     const gfResetMatchIndex = newMatches.findIndex(m => m.bracketType === 'grandFinalReset');
     if (gfResetMatchIndex !== -1) {
-      if (winnerId === team1Id) { // WB winner wins GF
+      if (winnerId === team1Id) { // WB winner wins GF, no reset needed
         newMatches[gfResetMatchIndex].isBye = true;
         newMatches[gfResetMatchIndex].team1Id = undefined;
         newMatches[gfResetMatchIndex].team2Id = undefined;
         newMatches[gfResetMatchIndex].winnerId = undefined; 
-      } else if (winnerId === team2Id && team1Id && team2Id) { // LB winner wins GF, reset is needed
-        newMatches[gfResetMatchIndex].team1Id = team1Id; // WB Winner
-        newMatches[gfResetMatchIndex].team2Id = team2Id; // LB Winner (who won GF1)
+        newMatches[gfResetMatchIndex].score = undefined;
+      } else if (winnerId === team2Id && team1Id && team2Id) { // LB winner wins GF, reset IS needed
+        newMatches[gfResetMatchIndex].team1Id = team1Id; 
+        newMatches[gfResetMatchIndex].team2Id = team2Id; 
         newMatches[gfResetMatchIndex].isBye = false;
         newMatches[gfResetMatchIndex].winnerId = undefined;
         newMatches[gfResetMatchIndex].score = undefined;
       }
+       // If GF itself was a bye (e.g. one finalist TBD), reset should also be bye.
+       else if (!team1Id || !team2Id) {
+         newMatches[gfResetMatchIndex].isBye = true;
+         newMatches[gfResetMatchIndex].team1Id = undefined;
+         newMatches[gfResetMatchIndex].team2Id = undefined;
+         newMatches[gfResetMatchIndex].winnerId = undefined;
+         newMatches[gfResetMatchIndex].score = undefined;
+       }
     }
   }
-  // For grandFinalReset, no further advancement within this function. Winner is overall champ.
   return newMatches;
 }
 
@@ -597,10 +572,8 @@ export async function advanceWinner (
   const matchIdx = newMatchesWorkingCopy.findIndex(m => m.id === updatedMatch.id);
 
   if (matchIdx !== -1) {
-      // Ensure the most recent state of the updatedMatch (including score) is in our working copy
       newMatchesWorkingCopy[matchIdx] = {...newMatchesWorkingCopy[matchIdx], ...updatedMatch};
   } else {
-      console.error("Updated match not found in currentMatches array for advancement start.");
       return currentMatches; 
   }
 
@@ -634,33 +607,44 @@ async function clearSubsequentMatchesSingle(
       .map(({ index }) => index);
 
     for (const nextMatchIdx of dependentMatchesIndices) {
-      const originalNextMatch = { ...matches[nextMatchIdx] };
+      const originalNextMatchState = JSON.stringify(matches[nextMatchIdx]);
       let nextMatch = matches[nextMatchIdx]; 
-      let changed = false;
+      let changedInThisIteration = false;
 
       if (nextMatch.team1FeederMatchId === currentSourceMatchId && nextMatch.team1Id !== undefined) {
         nextMatch.team1Id = undefined;
-        changed = true;
+        changedInThisIteration = true;
       }
       if (nextMatch.team2FeederMatchId === currentSourceMatchId && nextMatch.team2Id !== undefined) {
         nextMatch.team2Id = undefined;
-        changed = true;
+        changedInThisIteration = true;
       }
 
-      if (changed || nextMatch.winnerId) {
+      // If either participant slot was cleared, or if the match had a winner (implying it was resolved based on prior state)
+      // then we need to reset its winner/score and re-evaluate its bye state.
+      if (changedInThisIteration || nextMatch.winnerId) {
         nextMatch.winnerId = undefined;
         nextMatch.score = undefined;
         
-        if (nextMatch.team1Id && !nextMatch.team2Id && !nextMatch.team2FeederMatchId) {
-            nextMatch.isBye = true; nextMatch.winnerId = nextMatch.team1Id;
-        } else if (!nextMatch.team1Id && !nextMatch.team1FeederMatchId && nextMatch.team2Id) {
-            nextMatch.isBye = true; nextMatch.winnerId = nextMatch.team2Id;
+        const team1Present = !!nextMatch.team1Id;
+        const team2Present = !!nextMatch.team2Id;
+        const team1FeederDefined = !!nextMatch.team1FeederMatchId;
+        const team2FeederDefined = !!nextMatch.team2FeederMatchId;
+
+        if (team1Present && !team2Present && !team2FeederDefined) {
+          nextMatch.isBye = true; nextMatch.winnerId = nextMatch.team1Id; // This winnerId will be processed by advanceWinner if needed
+        } else if (!team1Present && !team1FeederDefined && team2Present) {
+          nextMatch.isBye = true; nextMatch.winnerId = nextMatch.team2Id;
         } else {
-            nextMatch.isBye = false;
+          nextMatch.isBye = false; 
         }
         
-        if (JSON.stringify(originalNextMatch) !== JSON.stringify(nextMatch)) {
+        // Only queue if the state actually changed to prevent infinite loops on stable states
+        if (JSON.stringify(nextMatch) !== originalNextMatchState) {
             matches[nextMatchIdx] = nextMatch; 
+             // If it became a bye and an auto-winner was set, that winner needs to propagate.
+             // However, advanceWinner should be called separately for that.
+             // For clearing, we just queue if it's not a resolved bye.
             if(!nextMatch.isBye || (nextMatch.isBye && !nextMatch.winnerId)) { 
                  queue.push(nextMatch.id); 
             }
@@ -682,74 +666,93 @@ export async function clearSubsequentMatches (
   const fromMatchIndex = matchesToUpdate.findIndex(m => m.id === fromMatch.id);
   if (fromMatchIndex === -1) return matchesToUpdate;
 
+  // Reset the source match itself (winner, score)
   matchesToUpdate[fromMatchIndex].winnerId = undefined;
   matchesToUpdate[fromMatchIndex].score = undefined;
-  
-  if (matchesToUpdate[fromMatchIndex].team1Id && matchesToUpdate[fromMatchIndex].team2Id) {
+  // Re-evaluate its bye state only if it's not structurally a bye from generation
+  const sourceIsStructurallyBye = (!matchesToUpdate[fromMatchIndex].team1Id && !matchesToUpdate[fromMatchIndex].team1FeederMatchId && matchesToUpdate[fromMatchIndex].team2Id) ||
+                                 (matchesToUpdate[fromMatchIndex].team1Id && !matchesToUpdate[fromMatchIndex].team2Id && !matchesToUpdate[fromMatchIndex].team2FeederMatchId);
+  if (!sourceIsStructurallyBye && matchesToUpdate[fromMatchIndex].team1Id && matchesToUpdate[fromMatchIndex].team2Id) {
       matchesToUpdate[fromMatchIndex].isBye = false; 
   }
   
   if (tournamentType === 'single') {
       return clearSubsequentMatchesSingle(matchesToUpdate, matchesToUpdate[fromMatchIndex]);
   } else if (tournamentType === 'double_elimination') {
-    // For DE, clearing is more complex. We'll clear direct dependents.
     let queue: string[] = [fromMatch.id];
     const processed = new Set<string>();
 
     while(queue.length > 0) {
-        const currentMatchId = queue.shift()!;
-        if (processed.has(currentMatchId)) continue;
-        processed.add(currentMatchId);
+        const currentSourceMatchId = queue.shift()!;
+        if (processed.has(currentSourceMatchId)) continue;
+        processed.add(currentSourceMatchId);
 
-        const sourceMatchForQueue = matchesToUpdate.find(m => m.id === currentMatchId);
-        if (!sourceMatchForQueue) continue;
+        const sourceMatchForQueueLoop = matchesToUpdate.find(m => m.id === currentSourceMatchId);
+        if (!sourceMatchForQueueLoop) continue;
 
-        // Find matches fed by this match's winner
-        const winnerFedIndices = matchesToUpdate
-            .map((m, i) => ((m.team1FeederMatchId === currentMatchId && m.team1FeederType === 'winner') || (m.team2FeederMatchId === currentMatchId && m.team2FeederType === 'winner')) ? i : -1)
-            .filter(i => i !== -1);
-
-        for (const idx of winnerFedIndices) {
-            if (matchesToUpdate[idx].team1FeederMatchId === currentMatchId && matchesToUpdate[idx].team1FeederType === 'winner') matchesToUpdate[idx].team1Id = undefined;
-            if (matchesToUpdate[idx].team2FeederMatchId === currentMatchId && matchesToUpdate[idx].team2FeederType === 'winner') matchesToUpdate[idx].team2Id = undefined;
-            
-            if (matchesToUpdate[idx].winnerId) { // If it had a winner, it needs to be cleared and its dependents queued
-                matchesToUpdate[idx].winnerId = undefined;
-                matchesToUpdate[idx].score = undefined;
-                matchesToUpdate[idx].isBye = false; // Re-evaluate bye state if structure allows
-                queue.push(matchesToUpdate[idx].id);
+        // Find matches fed by this match's winner OR loser
+        const dependentMatchIndices: number[] = [];
+        matchesToUpdate.forEach((potentialDependentMatch, index) => {
+            if ( (potentialDependentMatch.team1FeederMatchId === currentSourceMatchId && (potentialDependentMatch.team1FeederType === 'winner' || potentialDependentMatch.team1FeederType === 'loser')) ||
+                 (potentialDependentMatch.team2FeederMatchId === currentSourceMatchId && (potentialDependentMatch.team2FeederType === 'winner' || potentialDependentMatch.team2FeederType === 'loser')) ) 
+            {
+                dependentMatchIndices.push(index);
             }
-        }
+        });
 
-        // If it's a WB match, also find LB match fed by its loser
-        if (sourceMatchForQueue.bracketType === 'winners') {
-            const loserFedIndices = matchesToUpdate
-                .map((m, i) => ((m.team1FeederMatchId === currentMatchId && m.team1FeederType === 'loser') || (m.team2FeederMatchId === currentMatchId && m.team2FeederType === 'loser')) ? i : -1)
-                .filter(i => i !== -1);
-            for (const idx of loserFedIndices) {
-                if (matchesToUpdate[idx].team1FeederMatchId === currentMatchId && matchesToUpdate[idx].team1FeederType === 'loser') matchesToUpdate[idx].team1Id = undefined;
-                if (matchesToUpdate[idx].team2FeederMatchId === currentMatchId && matchesToUpdate[idx].team2FeederType === 'loser') matchesToUpdate[idx].team2Id = undefined;
 
-                 if (matchesToUpdate[idx].winnerId) {
-                    matchesToUpdate[idx].winnerId = undefined;
-                    matchesToUpdate[idx].score = undefined;
-                    matchesToUpdate[idx].isBye = false;
-                    queue.push(matchesToUpdate[idx].id);
+        for (const idx of dependentMatchIndices) {
+            const originalNextMatchState = JSON.stringify(matchesToUpdate[idx]);
+            let dependentMatch = matchesToUpdate[idx];
+            let participantSlotCleared = false;
+
+            if (dependentMatch.team1FeederMatchId === currentSourceMatchId) {
+                if(dependentMatch.team1Id !== undefined) { dependentMatch.team1Id = undefined; participantSlotCleared = true;}
+            }
+            if (dependentMatch.team2FeederMatchId === currentSourceMatchId) {
+                 if(dependentMatch.team2Id !== undefined) { dependentMatch.team2Id = undefined; participantSlotCleared = true;}
+            }
+            
+            // If a participant slot was cleared OR if the dependent match already had a winner (implying it was resolved)
+            if (participantSlotCleared || dependentMatch.winnerId) {
+                dependentMatch.winnerId = undefined;
+                dependentMatch.score = undefined;
+                
+                const depTeam1Present = !!dependentMatch.team1Id;
+                const depTeam2Present = !!dependentMatch.team2Id;
+                const depTeam1FeederDefined = !!dependentMatch.team1FeederMatchId;
+                const depTeam2FeederDefined = !!dependentMatch.team2FeederMatchId;
+
+                if (depTeam1Present && !depTeam2Present && !depTeam2FeederDefined) {
+                    dependentMatch.isBye = true; // Winner TBD if depTeam1Id came from another feeder
+                } else if (!depTeam1Present && !depTeam1FeederDefined && depTeam2Present) {
+                    dependentMatch.isBye = true;
+                } else {
+                    dependentMatch.isBye = false;
+                }
+                
+                if (JSON.stringify(dependentMatch) !== originalNextMatchState) {
+                    matchesToUpdate[idx] = dependentMatch;
+                    if (!dependentMatch.isBye || (dependentMatch.isBye && !dependentMatch.winnerId) ) { // only queue if not a resolved bye
+                         queue.push(dependentMatch.id);
+                    }
                 }
             }
         }
-        // Special handling for Grand Final Reset
-        if (sourceMatchForQueue.bracketType === 'grandFinal') {
+        // Special handling for Grand Final Reset if 'fromMatch' was the Grand Final
+        if (sourceMatchForQueueLoop.bracketType === 'grandFinal') {
             const gfResetIdx = matchesToUpdate.findIndex(m => m.bracketType === 'grandFinalReset');
-            if (gfResetIdx !== -1) {
+            if (gfResetIdx !== -1 && !matchesToUpdate[gfResetIdx].isBye) { // Only reset if it was active
                 matchesToUpdate[gfResetIdx].team1Id = undefined;
                 matchesToUpdate[gfResetIdx].team2Id = undefined;
                 matchesToUpdate[gfResetIdx].winnerId = undefined;
                 matchesToUpdate[gfResetIdx].score = undefined;
-                matchesToUpdate[gfResetIdx].isBye = true;
+                matchesToUpdate[gfResetIdx].isBye = true; // Reset to inactive bye state
+                // No need to queue gfReset further as it's an end-point or activated by GF winner
             }
         }
     }
   }
   return matchesToUpdate;
 }
+
