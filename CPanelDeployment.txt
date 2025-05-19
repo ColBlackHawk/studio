@@ -5,6 +5,7 @@ If it's not there, your hosting plan might not support it directly, and you'd ne
 
 Build Your App Locally:
 Open your project terminal.
+update local next.config.ts with hostname: 'yourhost.com',
 Run the command: npm run build
 This will create an optimized production build of your Next.js app in a .next folder.
 Prepare Files for Upload: You'll need to upload a .zip file (or individual files/folders) containing:
