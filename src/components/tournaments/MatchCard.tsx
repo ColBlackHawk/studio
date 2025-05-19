@@ -69,7 +69,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
   
   const getParticipantClasses = (teamId?: string, isWinner?: boolean) => {
     return cn(
-      "p-3 rounded-md transition-all duration-150 ease-in-out w-full text-left",
+      "p-2 rounded-md transition-all duration-150 ease-in-out w-full text-left text-sm", // Reduced padding, added text-sm
       "border",
       isWinner ? "bg-accent text-accent-foreground border-accent shadow-md" : "bg-card hover:bg-muted/50",
       !isClickable(teamId) ? "cursor-not-allowed opacity-70" : "cursor-pointer",
@@ -94,15 +94,15 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
     const advancingParticipantName = team1Name !== "Bye" ? team1Name : team2Name;
     return (
       <Card className="shadow-md bg-muted/30">
-        <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
-          <CardTitle className="text-xs text-center text-muted-foreground">
+        <CardHeader className="py-1.5 px-2 flex flex-row justify-between items-center">
+          <CardTitle className="text-[10px] text-center text-muted-foreground"> {/* Smaller font */}
             Match {matchIdentifier}
           </CardTitle>
           {getBracketTypeIndicator()}
         </CardHeader>
-        <CardContent className="text-center py-2">
-          <p className="font-semibold text-primary">{advancingParticipantName}</p>
-          <p className="text-sm text-muted-foreground">BYE (Auto-Win)</p>
+        <CardContent className="text-center py-1 px-2">
+          <p className="font-semibold text-primary text-sm">{advancingParticipantName}</p> {/* text-sm */}
+          <p className="text-xs text-muted-foreground">BYE (Auto-Win)</p>
         </CardContent>
       </Card>
     );
@@ -111,15 +111,15 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
   if (match.bracketType === 'grandFinalReset' && match.isBye) {
      return (
       <Card className="shadow-md bg-muted/20 opacity-60">
-        <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
-          <CardTitle className="text-xs text-center text-muted-foreground">
+        <CardHeader className="py-1.5 px-2 flex flex-row justify-between items-center">
+          <CardTitle className="text-[10px] text-center text-muted-foreground">
             Match {matchIdentifier}
           </CardTitle>
            {getBracketTypeIndicator()}
         </CardHeader>
-        <CardContent className="text-center py-4">
-          <p className="text-sm text-muted-foreground">Not Activated</p>
-          <p className="text-xs text-muted-foreground">(If LB winner wins Grand Final)</p>
+        <CardContent className="text-center py-2 px-2"> {/* Adjusted padding */}
+          <p className="text-xs text-muted-foreground">Not Activated</p>
+          <p className="text-[10px] text-muted-foreground">(If LB winner wins Grand Final)</p> {/* Smaller font */}
         </CardContent>
       </Card>
     );
@@ -128,13 +128,13 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
 
   return (
     <Card className="shadow-md">
-      <CardHeader className="pb-2 pt-3 flex flex-row justify-between items-center">
-        <CardTitle className="text-xs text-center text-muted-foreground">
+      <CardHeader className="py-1.5 px-2 flex flex-row justify-between items-center">
+        <CardTitle className="text-[10px] text-center text-muted-foreground">
           Match {matchIdentifier}
         </CardTitle>
         {getBracketTypeIndicator()}
       </CardHeader>
-      <CardContent className="space-y-2 py-2">
+      <CardContent className="space-y-1 py-1 px-2">
         <Button
           variant="outline"
           className={getParticipantClasses(match.team1Id, match.winnerId === match.team1Id)}
@@ -144,11 +144,11 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
         >
           <div className="flex items-center justify-between w-full">
             <span className="truncate">{team1Name}</span>
-            {match.winnerId === match.team1Id && <Trophy className="h-4 w-4 text-yellow-400 ml-2" />}
+            {match.winnerId === match.team1Id && <Trophy className="h-3 w-3 text-yellow-400 ml-1" />} {/* Smaller icon, margin */}
           </div>
         </Button>
         
-        <div className="text-center text-xs font-semibold text-muted-foreground">VS</div>
+        <div className="text-center text-[10px] font-semibold text-muted-foreground">VS</div> {/* Smaller font */}
 
         <Button
           variant="outline"
@@ -159,14 +159,14 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
         >
            <div className="flex items-center justify-between w-full">
             <span className="truncate">{team2Name}</span>
-            {match.winnerId === match.team2Id && <Trophy className="h-4 w-4 text-yellow-400 ml-2" />}
+            {match.winnerId === match.team2Id && <Trophy className="h-3 w-3 text-yellow-400 ml-1" />} {/* Smaller icon, margin */}
           </div>
         </Button>
       </CardContent>
       { (team1 || team2 || (match.bracketType === 'grandFinalReset' && !match.isBye) ) && !match.isBye && ( 
-          <CardFooter className="pt-2 pb-3">
-            <div className="w-full space-y-1">
-              <Label htmlFor={`score-${match.id}`} className="text-xs text-muted-foreground">Score (Optional)</Label>
+          <CardFooter className="px-2 pt-1 pb-1.5">
+            <div className="w-full space-y-0.5"> {/* Reduced space */}
+              <Label htmlFor={`score-${match.id}`} className="text-[10px] text-muted-foreground">Score</Label> {/* Removed optional, smaller font */}
               <Input
                 id={`score-${match.id}`}
                 type="text"
@@ -174,7 +174,7 @@ export default function MatchCard({ match, team1, team2, onWinnerSelected }: Mat
                 value={score}
                 onChange={handleScoreChange}
                 onBlur={handleScoreBlur}
-                className="h-8 text-sm"
+                className="h-7 text-xs" // Reduced height, smaller font
                 disabled={(!match.team1Id || !match.team2Id) && !(match.bracketType === 'grandFinalReset' && !match.isBye)} 
               />
             </div>
