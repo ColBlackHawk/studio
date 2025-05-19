@@ -56,7 +56,7 @@ export default function BracketDisplay({ matches, registrations, onWinnerSelecte
       <ScrollArea className="w-full pb-4 border rounded-lg shadow-md bg-card">
         <div className="flex gap-4 items-start p-4">
           {rounds.map(roundNumber => (
-            <div key={`round-${bracketTypeTitle}-${roundNumber}`} className="flex flex-col gap-4 min-w-[300px] md:min-w-[350px]">
+            <div key={`round-${bracketTypeTitle}-${roundNumber}`} className="flex flex-col gap-4 min-w-[150px] md:min-w-[175px]">
               <h3 className="text-xl font-semibold text-center text-primary sticky top-0 bg-card/90 backdrop-blur-sm py-2 z-10 rounded-md shadow-sm">
                 {getRoundTitle(roundNumber, matches.find(m => m.round === roundNumber)?.bracketType)}
               </h3>
@@ -80,3 +80,4 @@ export default function BracketDisplay({ matches, registrations, onWinnerSelecte
     </div>
   );
 }
+
