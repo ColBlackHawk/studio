@@ -24,23 +24,7 @@ Navigate to the directory where you want to deploy your app (e.g., public_html/t
 Upload the .zip file containing your prepared project files and then extract it in the File Manager. Alternatively, upload the individual files and folders listed above.
 Configure the Node.js Application in cPanel:
 
-Go to the "Setup Node.js App" section in your cPanel.
-Click on "Create Application".
-Fill out the form:
-Node.js version: Select a version compatible with your project. Your package.json specifies Node.js >=22.14.0. Choose the closest available version (e.g., Node.js 22.x if available, or the latest LTS like 20.x or 18.x if 22.x isn't an option yet. Compatibility might be an issue if the exact version isn't available).
-Application mode: Select "Production".
-Application root: Enter the path to the folder where you uploaded your project files (e.g., /home/your_cpanel_username/public_html/tournamentbracket). The cPanel interface often has a file browser to help you select this.
-Application URL: Select the domain or subdomain you want your app to be accessible from. If you uploaded to a subdirectory of public_html, you might need to ensure this URL reflects that path, or that your domain points correctly to this Node.js app.
-Application startup file: This is crucial.
-Your package.json has a start script: "start": "next start".
-cPanel's Node.js setup might automatically detect and use this npm start command.
-If you need to specify the file manually, it might be node_modules/.bin/next.
-Often, you can simply leave this blank if your package.json has a start script, or you might need to specify npm start or the path to a server.js file if required by your host (see note below).
-A common approach for the startup file is to use your package.json's start script implicitly or by setting the startup file to something like app.js or server.js which might then internally call npm start. The most reliable way is usually to point to the npm start command. If cPanel needs an explicit file, you might need a simple server.js (see next point).
-(Optional) Create a server.js file (if cPanel requires an explicit entry point and doesn't directly run npm start):
 
-If the cPanel interface strictly requires a .js file as the startup file and doesn't automatically use your package.json's start script, you might need to create a simple server.js in your application root:
-// server.js
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');

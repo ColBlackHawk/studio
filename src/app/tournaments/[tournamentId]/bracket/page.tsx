@@ -150,8 +150,6 @@ export default function TournamentBracketPage() {
             Tap on a participant to mark as winner. Tap again to clear.
       </p>
 
-      {/* Double Elimination Notice Removed */}
-
       {tournament.tournamentType === 'double_elimination' && winnersBracketMatches.length > 0 && (
         <BracketDisplay
           matches={winnersBracketMatches}

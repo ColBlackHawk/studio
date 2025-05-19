@@ -3,12 +3,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Player } from "@/lib/types";
-import { getPlayers, deletePlayer as deletePlayerService } from "@/lib/dataService";
+import type { Player, PlayerCreation, User } from "@/lib/types";
+import { getPlayers, deletePlayer as deletePlayerService, createPlayer, getUsers as getUsersService, getPlayerByEmail } from "@/lib/dataService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Edit, Trash2, Users2, Medal, ListChecks, Mail, Phone } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { PlusCircle, Edit, Trash2, Users2, Medal, ListChecks, Mail, Phone, UserPlus, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,14 +33,35 @@ export default function ManagePlayersPage() {
   const { currentUserDetails, isLoading: authIsLoading } = useAuth();
   const router = useRouter();
 
+  const [allAppUsers, setAllAppUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+
   useEffect(() => {
     if (!authIsLoading && (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
       toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
       router.push("/");
     } else {
       fetchPlayers();
+      if (currentUserDetails?.accountType === 'Admin') {
+        setAllAppUsers(getUsersService());
+      }
     }
   }, [currentUserDetails, authIsLoading, router, toast]);
+
+  useEffect(() => {
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      setFilteredUsers(
+        allAppUsers.filter(user =>
+          user.nickname.toLowerCase().includes(lowerSearchTerm) ||
+          user.email.toLowerCase().includes(lowerSearchTerm)
+        )
+      );
+    } else {
+      setFilteredUsers([]);
+    }
+  }, [searchTerm, allAppUsers]);
 
   const fetchPlayers = () => {
     setPlayers(getPlayers());
@@ -46,9 +69,8 @@ export default function ManagePlayersPage() {
   };
 
   const handleDeletePlayer = (id: string, nickname: string) => {
-    // Admins can delete any player. Owners can also delete players (no ownership on players themselves).
     if (deletePlayerService(id)) {
-      fetchPlayers(); // Refresh list
+      fetchPlayers();
       toast({
         title: "Player Deleted",
         description: `Player "${nickname}" has been successfully deleted.`,
@@ -62,6 +84,43 @@ export default function ManagePlayersPage() {
     }
   };
 
+  const handleAddUserAsPlayer = (user: User) => {
+    if (!user.email) {
+      toast({ title: "Error", description: "Selected user does not have an email address.", variant: "destructive" });
+      return;
+    }
+    const existingPlayer = getPlayerByEmail(user.email);
+    if (existingPlayer) {
+      toast({
+        title: "Player Exists",
+        description: `A player profile already exists for ${user.nickname} (linked to email ${user.email}). Nickname: ${existingPlayer.nickname}`,
+        variant: "default",
+      });
+      return;
+    }
+
+    const newPlayerData: PlayerCreation = {
+      nickname: user.nickname,
+      email: user.email,
+      firstName: user.firstName || undefined,
+      lastName: user.lastName || undefined,
+      // APA number and ranking will be empty by default
+    };
+
+    const created = createPlayer(newPlayerData);
+    if (created) {
+      toast({
+        title: "Player Added",
+        description: `${user.nickname} has been added as a player.`,
+      });
+      fetchPlayers(); // Refresh player list
+      setSearchTerm(""); // Clear search
+    } else {
+      toast({ title: "Error", description: `Failed to add ${user.nickname} as a player.`, variant: "destructive" });
+    }
+  };
+
+
   if (isLoading || authIsLoading) {
     return <p>Loading players...</p>;
   }
@@ -70,15 +129,57 @@ export default function ManagePlayersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight text-primary">Manage Players</h1>
         <Button asChild>
           <Link href="/admin/players/new">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Player
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Player Manually
           </Link>
         </Button>
       </div>
+
+      {currentUserDetails?.accountType === 'Admin' && (
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle>Add Existing User as Player</CardTitle>
+            <CardDescription>Search for an app user by nickname or email to add them to the player database.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search users by nickname or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {searchTerm && filteredUsers.length > 0 && (
+              <ScrollArea className="h-[200px] border rounded-md p-2">
+                <div className="space-y-2">
+                  {filteredUsers.map(user => (
+                    <div key={user.email} className="flex items-center justify-between p-2 hover:bg-muted rounded-md">
+                      <div>
+                        <p className="font-medium">{user.nickname}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <Button size="sm" onClick={() => handleAddUserAsPlayer(user)}>
+                        <UserPlus className="mr-2 h-4 w-4" /> Add as Player
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            {searchTerm && filteredUsers.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No users found matching "{searchTerm}".</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {players.length === 0 ? (
         <Card>
@@ -95,7 +196,7 @@ export default function ManagePlayersPage() {
       ) : (
         <Card>
            <CardHeader>
-            <CardTitle>Registered Players</CardTitle>
+            <CardTitle>Registered Players List</CardTitle>
             <CardDescription>
               View, edit, or delete players from the central database.
             </CardDescription>
@@ -157,3 +258,4 @@ export default function ManagePlayersPage() {
     </div>
   );
 }
+
