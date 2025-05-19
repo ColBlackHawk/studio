@@ -150,16 +150,7 @@ export default function TournamentBracketPage() {
             Tap on a participant to mark as winner. Tap again to clear.
       </p>
 
-      {tournament.tournamentType === 'double_elimination' && (
-        <Card className="bg-destructive/5 text-destructive-foreground border-destructive/20 p-4 rounded-lg shadow-md">
-          <CardHeader className="p-2">
-            <CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5"/>Double Elimination Notice</CardTitle>
-          </CardHeader>
-          <CardContent className="p-2 text-sm">
-            <p>Double elimination bracket generation and advancement logic is currently simplified. Full DE features are complex and under development. Some matches in the Losers' Bracket might not populate correctly or advance automatically as expected yet.</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Double Elimination Notice Removed */}
 
       {tournament.tournamentType === 'double_elimination' && winnersBracketMatches.length > 0 && (
         <BracketDisplay
@@ -207,3 +198,4 @@ export default function TournamentBracketPage() {
     </div>
   );
 }
+
