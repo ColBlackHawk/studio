@@ -1,4 +1,4 @@
-Before you start:
+Read here before you start:
 
 Check cPanel: Log in to your cPanel and look for "Setup Node.js App," "Node.js Selector," or a similar option, usually under the "Software" section. 
 If it's not there, your hosting plan might not support it directly, and you'd need to explore other deployment methods or contact your host.
