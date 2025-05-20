@@ -8,6 +8,7 @@ import { getUsers as getUsersService, deleteUser as deleteUserService } from "@/
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added import
 import { PlusCircle, Edit, Trash2, Mail, User as UserIcon, ShieldAlert } from "lucide-react";
 import {
   AlertDialog,
@@ -105,54 +106,56 @@ export default function ManageUsersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead><UserIcon className="inline-block mr-1 h-4 w-4" />Nickname</TableHead>
-                  <TableHead>Full Name</TableHead>
-                  <TableHead><Mail className="inline-block mr-1 h-4 w-4" />Email</TableHead>
-                  <TableHead><ShieldAlert className="inline-block mr-1 h-4 w-4" />Account Type</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.email}>
-                    <TableCell className="font-medium">{user.nickname}</TableCell>
-                    <TableCell>{user.firstName || user.lastName ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() : "N/A"}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.accountType}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="icon" asChild title="Edit User">
-                        <Link href={`/admin/users/${encodeURIComponent(user.email)}/edit`}><Edit className="h-4 w-4" /></Link>
-                      </Button>
-                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="icon" title="Delete User" disabled={currentUserDetails?.email === user.email}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the user
-                              "{user.nickname}" ({user.email}).
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteUser(user.email, user.nickname)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
+            <ScrollArea className="h-[calc(100vh-380px)]"> {/* Adjust height as needed */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead><UserIcon className="inline-block mr-1 h-4 w-4" />Nickname</TableHead>
+                    <TableHead>Full Name</TableHead>
+                    <TableHead><Mail className="inline-block mr-1 h-4 w-4" />Email</TableHead>
+                    <TableHead><ShieldAlert className="inline-block mr-1 h-4 w-4" />Account Type</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.email}>
+                      <TableCell className="font-medium">{user.nickname}</TableCell>
+                      <TableCell>{user.firstName || user.lastName ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() : "N/A"}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.accountType}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="outline" size="icon" asChild title="Edit User">
+                          <Link href={`/admin/users/${encodeURIComponent(user.email)}/edit`}><Edit className="h-4 w-4" /></Link>
+                        </Button>
+                         <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" title="Delete User" disabled={currentUserDetails?.email === user.email}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the user
+                                "{user.nickname}" ({user.email}).
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(user.email, user.nickname)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
