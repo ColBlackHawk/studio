@@ -20,53 +20,36 @@ export const createUser = (userData: UserCreation): User | null => {
     return null;
   }
 
-  const users = getUsers();
+  let users = getUsers(); // Make sure to get the latest users array
   const isAdminEmail = userData.email.toLowerCase() === 'admin@tournamentbracket.com';
   const existingUserIndex = users.findIndex(u => u.email.toLowerCase() === userData.email.toLowerCase());
 
+  // This is the new user data payload we intend to create or use for admin update
   let finalUserData: User = {
     email: userData.email,
-    nickname: userData.nickname,
-    password: userData.password, // Storing plain text password - INSECURE
+    nickname: isAdminEmail ? 'Admin' : userData.nickname, // Force nickname for admin email
+    password: userData.password,
     firstName: userData.firstName,
     lastName: userData.lastName,
-    accountType: isAdminEmail ? 'Admin' : userData.accountType,
+    accountType: isAdminEmail ? 'Admin' : userData.accountType || 'Player',
   };
 
-  if (isAdminEmail) {
-    finalUserData.nickname = 'Admin'; // Force nickname for admin email
-    if (finalUserData.password !== 'password'){ // Ensure admin default password if explicitly created
-        // In a real scenario, admin password should be set securely, not hardcoded or easily changed here
-    }
-  }
-
-
-  if (existingUserIndex !== -1) {
+  if (existingUserIndex !== -1) { // Email already exists
     if (isAdminEmail) {
-        users[existingUserIndex] = { ...users[existingUserIndex], ...finalUserData }; // Ensure admin details are updated
+      // If it's the admin email, update the existing admin user's details
+      users[existingUserIndex] = { ...users[existingUserIndex], ...finalUserData };
+      setItem(LOCALSTORAGE_KEYS.USERS, users);
+      return users[existingUserIndex]; // Return the updated admin user
     } else {
-        console.error("User with this email already exists. Use updateUser if modification is intended.");
-        return users[existingUserIndex];
+      // If it's a non-admin email that already exists, creation should fail.
+      console.error("User with this email already exists.");
+      return null; // Explicitly return null for non-admin duplicates
     }
-  } else {
+  } else { // Email does not exist, this is a new user
     users.push(finalUserData);
-  }
-
-  setItem(LOCALSTORAGE_KEYS.USERS, users);
-  // Initialize admin user if not present
-  const adminUser = users.find(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
-  if (!adminUser) {
-    users.push({
-      email: 'admin@tournamentbracket.com',
-      nickname: 'Admin',
-      password: 'password', // Default admin password - INSECURE
-      accountType: 'Admin',
-    });
     setItem(LOCALSTORAGE_KEYS.USERS, users);
+    return finalUserData; // Return the newly created user
   }
-
-
-  return finalUserData;
 };
 
 export const updateUser = (email: string, updates: Partial<Omit<User, 'email'>>): User | undefined => {
@@ -75,9 +58,6 @@ export const updateUser = (email: string, updates: Partial<Omit<User, 'email'>>)
   if (index !== -1) {
     // Prevent changing email; email is the identifier.
     const { email: newEmail, ...restOfUpdates } = updates as Partial<User>;
-    // If password is being updated and is empty, retain old password. Otherwise, update.
-    // For this prototype, if `restOfUpdates.password` is provided (even if empty string for "remove"), it updates.
-    // A more robust system would handle empty password updates carefully (e.g., require "current password").
     users[index] = { ...users[index], ...restOfUpdates };
     setItem(LOCALSTORAGE_KEYS.USERS, users);
     return users[index];
@@ -265,43 +245,36 @@ export const removeAllTournamentRegistrations = (tournamentId: string): boolean 
 // Ensure default admin exists on app load if no users are present at all
 (() => {
   if (typeof window !== 'undefined') { // Only run on client
-    const users = getUsers();
-    if (users.length === 0) {
-      setItem(LOCALSTORAGE_KEYS.USERS, [{
-        email: 'admin@tournamentbracket.com',
+    let users = getUsers();
+    const adminEmail = 'admin@tournamentbracket.com';
+    let adminUser = users.find(u => u.email.toLowerCase() === adminEmail);
+
+    if (!adminUser) {
+      adminUser = {
+        email: adminEmail,
         nickname: 'Admin',
         password: 'password', // Default admin password - INSECURE
         accountType: 'Admin',
-      }]);
+      };
+      users.push(adminUser);
+      setItem(LOCALSTORAGE_KEYS.USERS, users);
     } else {
-      const adminUser = users.find(u => u.email.toLowerCase() === 'admin@tournamentbracket.com');
-      if (!adminUser) {
-        users.push({
-          email: 'admin@tournamentbracket.com',
-          nickname: 'Admin',
-          password: 'password', // Default admin password - INSECURE
-          accountType: 'Admin',
-        });
+      // Ensure existing admin user has correct details
+      let adminUpdated = false;
+      if (adminUser.password !== 'password') { // Ensure default password
+        adminUser.password = 'password';
+        adminUpdated = true;
+      }
+      if (adminUser.accountType !== 'Admin') {
+        adminUser.accountType = 'Admin';
+        adminUpdated = true;
+      }
+      if (adminUser.nickname !== 'Admin') {
+        adminUser.nickname = 'Admin';
+        adminUpdated = true;
+      }
+      if (adminUpdated) {
         setItem(LOCALSTORAGE_KEYS.USERS, users);
-      } else {
-        // Ensure existing admin user has a password if it's missing (e.g. from older state)
-        // And ensure their account type is Admin and nickname is Admin
-        let adminUpdated = false;
-        if (!adminUser.password) {
-          adminUser.password = 'password';
-          adminUpdated = true;
-        }
-        if (adminUser.accountType !== 'Admin') {
-            adminUser.accountType = 'Admin';
-            adminUpdated = true;
-        }
-        if (adminUser.nickname !== 'Admin') {
-            adminUser.nickname = 'Admin';
-            adminUpdated = true;
-        }
-        if (adminUpdated) {
-            setItem(LOCALSTORAGE_KEYS.USERS, users);
-        }
       }
     }
   }

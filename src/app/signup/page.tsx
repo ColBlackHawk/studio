@@ -42,6 +42,17 @@ function SignUpForm() {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
 
+    // Check for existing email *before* any other validations or user creation attempts
+    if (getUserByEmail(trimmedEmail)) {
+      toast({
+        title: "Email Already Used",
+        description: `The email address "${trimmedEmail}" is already associated with an account. Please log in.`,
+        variant: "destructive",
+      });
+      // router.push('/login'); // Optionally redirect to login
+      return; // STOP here if email exists
+    }
+
     // Basic client-side validations
     if (!trimmedEmail) {
       toast({ title: "Validation Error", description: "Email cannot be empty.", variant: "destructive" });
@@ -68,36 +79,25 @@ function SignUpForm() {
       return;
     }
 
-    // Check for existing email *before* attempting to create
-    if (getUserByEmail(trimmedEmail)) {
-      toast({
-        title: "Email Already Used", // Updated Title
-        description: `The email address "${trimmedEmail}" is already associated with an account. Please log in or use a different email.`,
-        variant: "destructive",
-      });
-      return; // Crucial: Stop further execution
-    }
-
-    // If email does not exist, proceed to create user
+    // If all checks pass and email is unique, proceed to create user
     const newUserPayload: UserCreation = {
       email: trimmedEmail,
       nickname: trimmedNickname,
-      password: password, // Storing plain text password - INSECURE
+      password: password, 
       firstName: trimmedFirstName || undefined,
       lastName: trimmedLastName || undefined,
       accountType: 'Player' as AccountType, // Default to 'Player'
     };
 
-    const newUser = createUser(newUserPayload);
+    const newUser = createUser(newUserPayload); // createUser now returns null for non-admin duplicates
 
     if (newUser) {
-      login(newUser); // Login expects full user object now
+      login(newUser); // AuthContext's login function handles redirection to '/'
       toast({ title: "Account Created!", description: `Welcome to ${APP_NAME}, ${newUser.nickname}!` });
-      // AuthContext's login function handles redirection to '/'
     } else {
-      // This case might be hit if createUser itself returns null for some other reason
-      // (e.g., if internal logic in createUser fails, though our duplicate check should prevent it for that specific case)
-      toast({ title: "Sign Up Failed", description: "An unexpected error occurred while creating your account. Please try again.", variant: "destructive" });
+      // This block will now also be hit if createUser returns null due to an internal duplicate check
+      // (though the primary check should prevent this).
+      toast({ title: "Sign Up Failed", description: "Could not create your account. The email might already be in use or another error occurred.", variant: "destructive" });
     }
   };
 
@@ -289,5 +289,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-
-    
