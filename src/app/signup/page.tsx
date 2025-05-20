@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Suspense, useEffect, useState } from 'react';
@@ -67,8 +68,12 @@ function SignUpForm() {
     }
 
     if (getUserByEmail(trimmedEmail)) {
-      toast({ title: "Account Exists", description: "An account with this email already exists. Please log in.", variant: "default" });
-      router.push('/login');
+      toast({ 
+        title: "Account Exists", 
+        description: "An account with this email already exists. Please log in.", 
+        variant: "default" 
+      });
+      router.push(`/login?email=${encodeURIComponent(trimmedEmail)}`);
       return;
     }
 
@@ -280,3 +285,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+
