@@ -25,7 +25,7 @@ function SignUpForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const { login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams(); // useSearchParams is now here
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,12 +71,10 @@ function SignUpForm() {
     // Check for existing email *before* attempting to create
     if (getUserByEmail(trimmedEmail)) {
       toast({
-        title: "Sign-Up Error: Email Already Used",
+        title: "Email Already Used", // Updated Title
         description: `The email address "${trimmedEmail}" is already associated with an account. Please log in or use a different email.`,
         variant: "destructive",
       });
-      // Optionally, redirect to login page if email exists
-      // router.push(`/login?email=${encodeURIComponent(trimmedEmail)}`);
       return; // Crucial: Stop further execution
     }
 
@@ -84,7 +82,7 @@ function SignUpForm() {
     const newUserPayload: UserCreation = {
       email: trimmedEmail,
       nickname: trimmedNickname,
-      password: password,
+      password: password, // Storing plain text password - INSECURE
       firstName: trimmedFirstName || undefined,
       lastName: trimmedLastName || undefined,
       accountType: 'Player' as AccountType, // Default to 'Player'
@@ -98,7 +96,7 @@ function SignUpForm() {
       // AuthContext's login function handles redirection to '/'
     } else {
       // This case might be hit if createUser itself returns null for some other reason
-      // (though for this prototype, it mainly handles admin user updates or new user additions).
+      // (e.g., if internal logic in createUser fails, though our duplicate check should prevent it for that specific case)
       toast({ title: "Sign Up Failed", description: "An unexpected error occurred while creating your account. Please try again.", variant: "destructive" });
     }
   };
@@ -292,3 +290,4 @@ export default function SignUpPage() {
   );
 }
 
+    
