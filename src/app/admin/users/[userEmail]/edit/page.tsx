@@ -52,8 +52,22 @@ export default function EditUserPage() {
         return; 
     }
 
-    updateUserService(userEmail, data); // Email is the identifier and shouldn't change
-    router.push("/admin/users");
+    const updatedUser = updateUserService(userEmail, data); // Email is the identifier and shouldn't change
+    if (updatedUser) {
+        toast({
+            title: "User Updated",
+            description: `${updatedUser.nickname} (${updatedUser.email}) has been successfully updated.`,
+        });
+        router.push("/admin/users");
+    } else {
+        // This case might not be hit if updateUser always returns the user or undefined,
+        // but it's a fallback.
+        toast({
+            title: "Update Failed",
+            description: `Could not update user ${data.nickname}.`,
+            variant: "destructive",
+        });
+    }
   };
   
   if (currentUserDetails?.accountType !== 'Admin') {

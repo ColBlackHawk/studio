@@ -38,10 +38,12 @@ export default function NewUserPage() {
     
     const newUser = createUserService(data);
     if (newUser) {
+        toast({
+            title: "User Created",
+            description: `${newUser.nickname} (${newUser.email}) has been successfully added.`,
+        });
         router.push("/admin/users");
     } else {
-        // This case might be redundant if getUserByEmail catches all duplicates,
-        // but it's a fallback for other potential creation issues from createUserService.
         toast({
             title: "Creation Failed",
             description: "Could not create the user. The email might already be in use or another error occurred.",

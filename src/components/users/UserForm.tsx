@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+// Removed useToast from here as page-level components will handle it
 
 const accountTypes: AccountType[] = ['Admin', 'Owner', 'Player'];
 
@@ -66,7 +66,7 @@ interface UserFormProps {
 }
 
 export default function UserForm({ user, onSubmit, isEditing = false }: UserFormProps) {
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed from here
 
   const formSchema = isEditing ? editUserFormSchema : createUserFormSchema;
   type UserFormValues = z.infer<typeof formSchema>;
@@ -95,8 +95,8 @@ export default function UserForm({ user, onSubmit, isEditing = false }: UserForm
     defaultValues,
   });
 
-  const handleSubmit = (data: UserFormValues) => {
-    const submissionData: Partial<UserCreation | User> = { // Use Partial to build up
+  const handleSubmitForm = (data: UserFormValues) => { // Renamed to avoid confusion with prop
+    const submissionData: Partial<UserCreation | User> = { 
       email: data.email,
       nickname: data.nickname,
       firstName: data.firstName || undefined,
@@ -104,25 +104,22 @@ export default function UserForm({ user, onSubmit, isEditing = false }: UserForm
       accountType: data.accountType,
     };
 
-    if (data.password) { // Only include password if provided (and valid for schema)
+    if (data.password) { 
       submissionData.password = data.password;
     } else if (!isEditing) {
       // This case should be caught by createUserFormSchema making password required
-      toast({ title: "Error", description: "Password is required for new users.", variant: "destructive" });
+      // For safety, ensure the calling page handles this toast if needed.
+      // For now, this scenario is unlikely if zod validation works.
       return;
     }
-    // If editing and password fields are blank, the existing password remains unchanged (not sent in `updates`)
-
+    
     onSubmit(submissionData as UserCreation | User);
-    toast({
-      title: `User ${isEditing ? 'updated' : 'created'}`,
-      description: `${data.nickname} (${data.email}) has been successfully ${isEditing ? 'saved' : 'added'}.`,
-    });
+    // Generic success toast removed from here. Page-level components will handle success toasts.
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleSubmitForm)} className="space-y-8">
         <FormField
           control={form.control}
           name="email"
