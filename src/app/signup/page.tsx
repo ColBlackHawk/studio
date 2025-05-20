@@ -42,49 +42,52 @@ function SignUpForm() {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
 
+    // Basic client-side validations
     if (!trimmedEmail) {
-      toast({ title: "Error", description: "Email cannot be empty.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Email cannot be empty.", variant: "destructive" });
       return;
     }
     if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
     if (!trimmedNickname) {
-      toast({ title: "Error", description: "Name (Nickname) cannot be empty.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Name (Nickname) cannot be empty.", variant: "destructive" });
       return;
     }
     if (!password) {
-      toast({ title: "Error", description: "Password cannot be empty.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Password cannot be empty.", variant: "destructive" });
+      return;
+    }
+    if (password.length < 6) {
+      toast({ title: "Validation Error", description: "Password must be at least 6 characters long.", variant: "destructive" });
       return;
     }
     if (password !== confirmPassword) {
-      toast({ title: "Error", description: "Passwords do not match.", variant: "destructive" });
-      return;
-    }
-     if (password.length < 6) { // Basic password length check
-      toast({ title: "Error", description: "Password must be at least 6 characters long.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Passwords do not match.", variant: "destructive" });
       return;
     }
 
+    // Check for existing email *before* attempting to create
     if (getUserByEmail(trimmedEmail)) {
-      toast({ 
-        title: "Account Exists", 
-        description: "An account with this email already exists. Please log in.", 
-        variant: "default" 
+      toast({
+        title: "Sign-Up Error: Email Already Used",
+        description: `The email address "${trimmedEmail}" is already associated with an account. Please log in or use a different email.`,
+        variant: "destructive",
       });
-      router.push(`/login?email=${encodeURIComponent(trimmedEmail)}`);
-      return;
+      // Optionally, redirect to login page if email exists
+      // router.push(`/login?email=${encodeURIComponent(trimmedEmail)}`);
+      return; // Crucial: Stop further execution
     }
 
-    // For prototype, store password in plain text - INSECURE
+    // If email does not exist, proceed to create user
     const newUserPayload: UserCreation = {
       email: trimmedEmail,
       nickname: trimmedNickname,
-      password: password, // INSECURE: Storing plain text
+      password: password,
       firstName: trimmedFirstName || undefined,
       lastName: trimmedLastName || undefined,
-      accountType: 'Player' as AccountType // Default to 'Player'
+      accountType: 'Player' as AccountType, // Default to 'Player'
     };
 
     const newUser = createUser(newUserPayload);
@@ -92,8 +95,11 @@ function SignUpForm() {
     if (newUser) {
       login(newUser); // Login expects full user object now
       toast({ title: "Account Created!", description: `Welcome to ${APP_NAME}, ${newUser.nickname}!` });
+      // AuthContext's login function handles redirection to '/'
     } else {
-      toast({ title: "Sign Up Failed", description: "Could not create your account. Please try again.", variant: "destructive" });
+      // This case might be hit if createUser itself returns null for some other reason
+      // (though for this prototype, it mainly handles admin user updates or new user additions).
+      toast({ title: "Sign Up Failed", description: "An unexpected error occurred while creating your account. Please try again.", variant: "destructive" });
     }
   };
 
