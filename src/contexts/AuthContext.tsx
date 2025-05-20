@@ -11,9 +11,10 @@ import { getUserByEmail as fetchUserByEmail } from '@/lib/dataService';
 interface AuthContextType {
   currentUserEmail: string | null;
   currentUserDetails: User | null;
-  login: (user: User) => void; // Login now takes the full user object
+  login: (user: User) => void;
   logout: () => void;
   isLoading: boolean;
+  isLoggingOut: boolean; // New state
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUserDetails, setCurrentUserDetails] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // New state
   const router = useRouter();
 
   useEffect(() => {
@@ -33,13 +35,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUserEmail(userDetails.email);
         setCurrentUserDetails(userDetails);
       } else {
-        removeItem(LOCALSTORAGE_KEYS.CURRENT_USER); // Clear inconsistent stored user
+        removeItem(LOCALSTORAGE_KEYS.CURRENT_USER); 
       }
     }
     setIsLoading(false);
   }, []);
 
-  const login = (user: User) => { // Expects full user object
+  const login = (user: User) => {
     setIsLoading(true);
     if (user && user.email) {
         setItem<string>(LOCALSTORAGE_KEYS.CURRENT_USER, user.email);
@@ -53,14 +55,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    setIsLoggingOut(true); // Indicate logout process has started
     removeItem(LOCALSTORAGE_KEYS.CURRENT_USER);
     setCurrentUserEmail(null);
     setCurrentUserDetails(null);
     router.push('/login');
+    // No need to setIsLoggingOut(false) here immediately, 
+    // as the component tree will unmount/remount or the user will be on a public page.
+    // If further actions were needed post-redirect, a .finally() on router.push might be used.
+    // For this simple redirect, this is fine. The context will re-init on next load if needed.
   };
 
   return (
-    <AuthContext.Provider value={{ currentUserEmail, currentUserDetails, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ currentUserEmail, currentUserDetails, login, logout, isLoading, isLoggingOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,23 +7,26 @@ import { useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { currentUserDetails, isLoading } = useAuth();
+  const { currentUserDetails, isLoading, isLoggingOut } = useAuth(); // Added isLoggingOut
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoggingOut) { // If logging out, don't run access denied logic
+      return;
+    }
+
     if (!isLoading && (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
       toast({
         title: "Access Denied",
         description: "You do not have permission to access this area.",
         variant: "destructive",
       });
-      router.push('/'); // Redirect non-admins/owners away
+      router.push('/'); 
     }
-  }, [currentUserDetails, isLoading, router, toast]);
+  }, [currentUserDetails, isLoading, router, toast, isLoggingOut]); // Added isLoggingOut to dependencies
 
-  if (isLoading || (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
-    // You can render a loading spinner or a simple message here
+  if (isLoading || isLoggingOut || (!currentUserDetails || !['Admin', 'Owner'].includes(currentUserDetails.accountType))) {
     return <p>Loading or checking permissions...</p>; 
   }
 
