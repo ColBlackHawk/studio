@@ -9,30 +9,43 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PlusCircle, List } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation"; // Added useRouter
 
 export default function DashboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { currentUserDetails } = useAuth();
+  const [isLoadingTournaments, setIsLoadingTournaments] = useState(true); // Renamed for clarity
+  const { currentUserDetails, isLoading: authIsLoading } = useAuth(); // Renamed for clarity
+  const router = useRouter();
 
   useEffect(() => {
-    // localStorage is only available on the client side.
-    setTournaments(getTournaments());
-    setIsLoading(false);
-  }, []);
+    // Redirect to login if not authenticated and auth is not loading
+    if (!authIsLoading && !currentUserDetails) {
+      router.push('/login');
+    }
+  }, [authIsLoading, currentUserDetails, router]);
+
+  useEffect(() => {
+    // Only fetch tournaments if the user is authenticated (or if dashboard is public, this check might change)
+    if (currentUserDetails) {
+      setTournaments(getTournaments());
+      setIsLoadingTournaments(false);
+    } else if (!authIsLoading && !currentUserDetails) {
+      // If redirecting, don't bother loading tournaments
+      setIsLoadingTournaments(false);
+    }
+  }, [currentUserDetails, authIsLoading]);
 
   const canCreateTournament = currentUserDetails?.accountType === 'Admin' || currentUserDetails?.accountType === 'Owner';
 
-  if (isLoading) {
+  // Show loading or redirecting message
+  if (authIsLoading || (!authIsLoading && !currentUserDetails)) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Available Tournaments</h1>
-        </div>
-        <p>Loading tournaments...</p>
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <p className="text-xl text-muted-foreground">Loading or redirecting...</p>
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
@@ -47,7 +60,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {tournaments.length === 0 ? (
+      {isLoadingTournaments ? (
+         <p>Loading tournaments...</p>
+      ) : tournaments.length === 0 ? (
         <div className="text-center py-10 bg-card rounded-lg shadow">
           <List className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-2 text-sm font-medium text-foreground">No tournaments available</h3>
